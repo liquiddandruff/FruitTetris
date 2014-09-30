@@ -450,7 +450,8 @@ bool movetile(vec2 direction) {
 // Starts the game over - empties the board, creates new tiles, resets line counters
 void restart()
 {
-
+	initBoard();
+	newtile();
 }
 //-------------------------------------------------------------------------------------------------------------------
 
