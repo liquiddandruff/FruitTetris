@@ -42,7 +42,7 @@ int ysize = 720;
 
 int tileDropSpeed = TILE_DROP_SPEED;
 // current tile
-vec2 currTile[4]; // An array of 4 2d vectors representing displacement from a 'center' piece of the tile, on the grid
+vec2 currTileOffset[4]; // An array of 4 2d vectors representing displacement from a 'center' piece of the tile, on the grid
 vec2 currTilePos = vec2(5, 19); // The position of the current tile using grid coordinates ((0,0) is the bottom left corner)
 vec2 currTileShape[4][4];
 TileShape currTileShapeType = TILE_SHAPE_I;
@@ -160,8 +160,8 @@ void updatetile()
 	for (int i = 0; i < 4; i++) 
 	{
 		// Calculate the grid coordinates of the cell
-		GLfloat x = currTilePos.x + currTile[i].x; 
-		GLfloat y = currTilePos.y + currTile[i].y;
+		GLfloat x = currTilePos.x + currTileOffset[i].x; 
+		GLfloat y = currTilePos.y + currTileOffset[i].y;
 
 		// Create the 4 corners of the square - these vertices are using location in pixels
 		// These vertices are later converted by the vertex shader
@@ -192,7 +192,7 @@ void nudge(int cellOffsetX, int cellOffsetY) {
 
 //-------------------------------------------------------------------------------------------------------------------
 
-void shuffleColours() {
+void shuffleAndUpdateColours() {
 	vec4 temp = currTileColours[0];
 	currTileColours[0] = currTileColours[1];
 	currTileColours[1] = currTileColours[2];
@@ -216,20 +216,18 @@ void newtile()
 {
 	tileDropSpeed = TILE_DROP_SPEED;
 	//currTilePos = vec2(5 , 19); // Put the tile at the top of the board
-	currTilePos = vec2(rand() % 10 + 1 , 19); // Put the tile at the top of the board
+	currTilePos = vec2(rand() % 10, 19); // Put the tile at the top of the board
 
 	// Update the geometry VBO of current tile
 	currTileShapeType = setRandTileShape(currTileShape);
 	currTileOrientation = rand() % MAX_TILE_ORIENTATIONS;
 	for (int i = 0; i < 4; i++) {
-		currTile[i] = currTileShape[currTileOrientation][i]; // Get the 4 pieces of the new tile
-		nudge(currTile[i].x, currTile[i].y);
-	}
-	updatetile(); 
-	for (int i = 0; i < 4; i++) {
 		currTileColours[i] = randFruitColor();
+		currTileOffset[i] = currTileShape[currTileOrientation][i]; // Get the 4 pieces of the new tile
+		nudge(currTileOffset[i].x, currTile[i].y);
 	}
-	shuffleColours();
+	shuffleAndUpdateColours();
+	updatetile(); 
 
 	glBindVertexArray(0);
 }
@@ -394,7 +392,7 @@ void rotate()
 	}
 	currTileOrientation = nextORIENid;
 	for (int i = 0; i < 4; i++)
-		currTile[i] = nextOrientation[i];
+		currTileOffset[i] = nextOrientation[i];
 }
 
 //-------------------------------------------------------------------------------------------------------------------
@@ -413,8 +411,8 @@ void settile()
 {
 
 	for(int i = 0; i < 4; i++) {
-		int cellX = currTilePos.x + currTile[i].x;
-		int cellY = currTilePos.y + currTile[i].y;
+		int cellX = currTilePos.x + currTileOffset[i].x;
+		int cellY = currTilePos.y + currTileOffset[i].y;
 		board[cellX][cellY] = true;
 
 		boardcolours[6*(10*cellY + cellX)    ] = currTileColours[i];
@@ -436,8 +434,8 @@ void settile()
 // Returns true if the tile was successfully moved, or false if there was some issue
 bool movetile(vec2 direction) {
 	for (int i = 0; i < 4; i++) {
-		int cellX = currTilePos.x + currTile[i].x + direction.x;
-		int cellY = currTilePos.y + currTile[i].y + direction.y;
+		int cellX = currTilePos.x + currTileOffset[i].x + direction.x;
+		int cellY = currTilePos.y + currTileOffset[i].y + direction.y;
 		if(cellX < 0 || cellX > 9)
 			return false;
 		if(cellY < 0 || cellY > 19)
@@ -540,7 +538,7 @@ void keyboard(unsigned char key, int x, int y)
 			restart();
 			break;
 		case ' ':
-			shuffleColours();
+			shuffleAndUpdateColours();
 			updatetile();
 			break;
 	}
@@ -556,12 +554,8 @@ void idle(void)
 
 bool freeToFall() {
 	for(int i = 0; i < 4; i++) {
-		nudge(currTile[i].x, currTile[i].y);
-		int cellX = currTilePos.x + currTile[i].x;
-		int cellY = currTilePos.y + currTile[i].y;
-		//cout << "cellX: " << cellX << " cellY: " << cellY << endl;
-		//if(cellX > 9)
-		//	currTilePos.x -= currTile[i].x;
+		int cellX = currTilePos.x + currTileOffset[i].x;
+		int cellY = currTilePos.y + currTileOffset[i].y;
 		if(cellY - 1 < 0)
 			return false;
 		if(board[cellX][cellY - 1] == true)
