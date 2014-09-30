@@ -57,13 +57,13 @@ vec4 currTileColours[4];
 vec2 allRotationsIshape[4][4] =
 	{{vec2(-2, 0), vec2(-1, 0), vec2(0, 0), vec2(1, 0)},
 	{vec2(0, -2), vec2(0, -1), vec2(0, 0), vec2(0, 1)},
-	{vec2(-2, 0), vec2(-1, 0), vec2(0, 0), vec2(1, 0)},
-	{vec2(0, -2), vec2(0, -1), vec2(0, 0), vec2(0, 1)}};
+	{vec2(2, 0), vec2(1, 0), vec2(0, 0), vec2(-1, 0)},
+	{vec2(0, 2), vec2(0, 1), vec2(0, 0), vec2(0, -1)}};
 vec2 allRotationsSshape[4][4] =
 	{{vec2(-1, -1), vec2(0, -1), vec2(0, 0), vec2(1, 0)},
 	{vec2(1, -1), vec2(1, 0), vec2(0, 0), vec2(0, 1)},
-	{vec2(-1, -1), vec2(0, -1), vec2(0, 0), vec2(1, 0)},
-	{vec2(1, -1), vec2(1, 0), vec2(0, 0), vec2(0, 1)}};
+	{vec2(1, 1), vec2(0, 1), vec2(0, 0), vec2(-1, 0)},
+	{vec2(-1, 1), vec2(-1, 0), vec2(0, 0), vec2(0, -1)}};
 vec2 allRotationsLshape[4][4] = 
 	{{vec2(-1, -1), vec2(-1,0), vec2(0, 0), vec2(1, 0)},
 	{vec2(1, -1), vec2(0, -1), vec2(0, 0), vec2(0, 1)},     
@@ -497,21 +497,25 @@ void special(int key, int x, int y)
 		case GLUT_KEY_UP:
 			rotate();
 			cout << "GLUT_KEY_UP" << endl;
+			updatetile();
 			break;
 		case GLUT_KEY_DOWN:
 			tileDropSpeed = TILE_DROP_SPEED_FAST;
+			updatetile();
 			cout << "GLUT_KEY_DOWN" << endl;
 			break;
 		case GLUT_KEY_RIGHT:
 			if(movetile(vec2(1, 0))) {
 				cout << "GLUT_KEY_RIGHT" << endl;
 				currTilePos.x += 1;
+				updatetile();
 			}
 			break;
 		case GLUT_KEY_LEFT:
 			if(movetile(vec2(-1, 0))) {
 				cout << "GLUT_KEY_LEFT" << endl;
 				currTilePos.x -= 1;
+				updatetile();
 			}
 			break;
 		default:
@@ -537,6 +541,7 @@ void keyboard(unsigned char key, int x, int y)
 			break;
 		case ' ':
 			shuffleColours();
+			updatetile();
 			break;
 	}
 	glutPostRedisplay();
