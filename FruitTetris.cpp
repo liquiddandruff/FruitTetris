@@ -33,8 +33,7 @@ enum TileInfo {
 enum TileShape {
 	TILE_SHAPE_I,
 	TILE_SHAPE_S,
-	TILE_SHAPE_L,
-	TILE_UNSET
+	TILE_SHAPE_L
 };
 
 // xsize and ysize represent the window size - updated if window is reshaped to prevent stretching of the game
@@ -46,7 +45,7 @@ int tileDropSpeed = TILE_DROP_SPEED;
 vec2 currTile[4]; // An array of 4 2d vectors representing displacement from a 'center' piece of the tile, on the grid
 vec2 currTilePos = vec2(5, 19); // The position of the current tile using grid coordinates ((0,0) is the bottom left corner)
 vec2 currTileShape[4][4];
-TileShape currTileShapeType = TILE_UNSET;
+TileShape currTileShapeType = TILE_SHAPE_I;
 int currTileOrientation = 0;
 vec4 currTileColours[4];
 
@@ -54,21 +53,22 @@ vec4 currTileColours[4];
 
 // An array storing all possible orientations of all possible tiles
 // The 'tile' array will always be some element [i][j] of this array (an array of vec2)
+// all are in a,b,c,d order
 vec2 allRotationsIshape[4][4] =
 	{{vec2(-2, 0), vec2(-1, 0), vec2(0, 0), vec2(1, 0)},
-	{vec2(0, 1), vec2(0, 0), vec2(0, -1), vec2(0, -2)},
+	{vec2(0, -2), vec2(0, -1), vec2(0, 0), vec2(0, 1)},
 	{vec2(-2, 0), vec2(-1, 0), vec2(0, 0), vec2(1, 0)},
-	{vec2(0, 1), vec2(0, 0), vec2(0, -1), vec2(0, -2)}};
+	{vec2(0, -2), vec2(0, -1), vec2(0, 0), vec2(0, 1)}};
 vec2 allRotationsSshape[4][4] =
-	{{vec2(0, 0), vec2(1, 0), vec2(0, -1), vec2(-1, -1)},
-	{vec2(0, 0), vec2(0, 1), vec2(1, 0), vec2(1, -1)},
-	{vec2(0, 0), vec2(1, 0), vec2(0, -1), vec2(-1, -1)},
-	{vec2(0, 0), vec2(0, 1), vec2(1, 0), vec2(1, -1)}};
+	{{vec2(-1, -1), vec2(0, -1), vec2(0, 0), vec2(1, 0)},
+	{vec2(1, -1), vec2(1, 0), vec2(0, 0), vec2(0, 1)},
+	{vec2(-1, -1), vec2(0, -1), vec2(0, 0), vec2(1, 0)},
+	{vec2(1, -1), vec2(1, 0), vec2(0, 0), vec2(0, 1)}};
 vec2 allRotationsLshape[4][4] = 
-	{{vec2(0, 0), vec2(-1,0), vec2(1, 0), vec2(-1,-1)},
-	{vec2(0, 1), vec2(0, 0), vec2(0,-1), vec2(1, -1)},     
-	{vec2(1, 1), vec2(-1,0), vec2(0, 0), vec2(1,  0)},  
-	{vec2(-1,1), vec2(0, 1), vec2(0, 0), vec2(0, -1)}};
+	{{vec2(-1, -1), vec2(-1,0), vec2(0, 0), vec2(1, 0)},
+	{vec2(1, -1), vec2(0, -1), vec2(0, 0), vec2(0, 1)},     
+	{vec2(1, 1), vec2(1, 0), vec2(0, 0), vec2(-1,  0)},  
+	{vec2(-1, 1), vec2(0, 1), vec2(0, 0), vec2(0, -1)}};
 
 void changeTileFromAtoB(vec2 from[][4], vec2 to[][4]) {
 	for(int i = 0; i < 4; i++) {
