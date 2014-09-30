@@ -224,7 +224,7 @@ void newtile()
 	for (int i = 0; i < 4; i++) {
 		currTileColours[i] = randFruitColor();
 		currTileOffset[i] = currTileShape[currTileOrientation][i]; // Get the 4 pieces of the new tile
-		nudge(currTileOffset[i].x, currTile[i].y);
+		nudge(currTileOffset[i].x, currTileOffset[i].y);
 	}
 	shuffleAndUpdateColours();
 	updatetile(); 
