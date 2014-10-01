@@ -54,23 +54,23 @@ vec4 currTileColours[4];
 // An array storing all possible orientations of all possible tiles
 // The 'tile' array will always be some element [i][j] of this array (an array of vec2)
 // all are in a,b,c,d order
-vec2 allRotationsIshape[4][4] =
+const vec2 allRotationsIshape[4][4] =
 	{{vec2(-2, 0), vec2(-1, 0), vec2(0, 0), vec2(1, 0)},
 	{vec2(0, -2), vec2(0, -1), vec2(0, 0), vec2(0, 1)},
 	{vec2(2, 0), vec2(1, 0), vec2(0, 0), vec2(-1, 0)},
 	{vec2(0, 2), vec2(0, 1), vec2(0, 0), vec2(0, -1)}};
-vec2 allRotationsSshape[4][4] =
+const vec2 allRotationsSshape[4][4] =
 	{{vec2(-1, -1), vec2(0, -1), vec2(0, 0), vec2(1, 0)},
 	{vec2(1, -1), vec2(1, 0), vec2(0, 0), vec2(0, 1)},
 	{vec2(1, 1), vec2(0, 1), vec2(0, 0), vec2(-1, 0)},
 	{vec2(-1, 1), vec2(-1, 0), vec2(0, 0), vec2(0, -1)}};
-vec2 allRotationsLshape[4][4] = 
+const vec2 allRotationsLshape[4][4] = 
 	{{vec2(-1, -1), vec2(-1,0), vec2(0, 0), vec2(1, 0)},
 	{vec2(1, -1), vec2(0, -1), vec2(0, 0), vec2(0, 1)},     
 	{vec2(1, 1), vec2(1, 0), vec2(0, 0), vec2(-1,  0)},  
 	{vec2(-1, 1), vec2(0, 1), vec2(0, 0), vec2(0, -1)}};
 
-void changeTileFromAtoB(vec2 from[][4], vec2 to[][4]) {
+void changeTileFromAtoB(vec2 from[][4], const vec2 to[][4]) {
 	for(int i = 0; i < 4; i++) {
 		for(int k = 0; k < 4; k++) {
 			from[i][k].x = to[i][k].x;
@@ -96,32 +96,35 @@ TileShape setRandTileShape(vec2 _tile[][4]) {
 //-------------------------------------------------------------------------------------------------------------------
 
 // colors
-vec4 white  = vec4(1.0, 1.0, 1.0, 1.0);
-vec4 black  = vec4(0.0, 0.0, 0.0, 1.0); 
+const vec4 white  = vec4(1.0, 1.0, 1.0, 1.0);
+const vec4 black  = vec4(0.0, 0.0, 0.0, 1.0); 
 
 // fruit colors: https://kuler.adobe.com/create/color-wheel/?base=2&rule=Custom&selected=3&name=My%20Kuler%20Theme&mode=rgb&rgbvalues=1,0.8626810137791381,0,0.91,0.5056414909356977,0,1,0.10293904996979109,0,0.5587993310653088,0,0.91,0.1658698853207745,1,0.10159077034733333&swatchOrder=0,1,2,3,4
-vec4 grape  = vec4(142/255.0 , 54/255.0  , 232/255.0 , 1.0);
-vec4 apple  = vec4(255/255.0 , 26/255.0  , 0/255.0  , 1.0);
-vec4 banana = vec4(255/255.0 , 220/255.0 , 0/255.0  , 1.0);
-vec4 pear   = vec4(42/255.0  , 255/255.0 , 26/255.0  , 1.0);
-vec4 orange = vec4(232/255.0 , 129/255.0 , 0/255.0   , 1.0);
+const vec4 grape  = vec4(142/255.0 , 54/255.0  , 232/255.0 , 1.0);
+const vec4 apple  = vec4(255/255.0 , 26/255.0  , 0/255.0  , 1.0);
+const vec4 banana = vec4(255/255.0 , 220/255.0 , 0/255.0  , 1.0);
+const vec4 pear   = vec4(42/255.0  , 255/255.0 , 26/255.0  , 1.0);
+const vec4 orange = vec4(232/255.0 , 129/255.0 , 0/255.0   , 1.0);
 
-vec4 randFruitColor() {
-	//return vec4(rand()/(float)RAND_MAX, rand()/(float)RAND_MAX, rand()/(float)RAND_MAX, 1.0);
-	vec4 randc;
-	switch(rand() % 5) {
-		case 0: randc = grape; break;
-		case 1: randc = apple; break;
-		case 2: randc = banana; break;
-		case 3: randc = pear; break;
-		case 4: randc = orange; break;
-	}
-	return randc;
-}
+enum FruitColours {
+	ColourGrape,
+	ColourApple,
+	ColourBanana,
+	ColourPear,
+	ColourOrange,
+	MaxFruitColours
+};
 
+const vec4 fruitColours[] = {grape, apple, banana, pear, orange};
+
+//-------------------------------------------------------------------------------------------------------------------
  
 //board[x][y] represents whether the cell (x,y) is occupied
 bool board[10][20]; 
+
+bool isOccupied(vec2 p) {
+	return board[(int)p.x][(int)p.y];
+}
 
 //An array containing the colour of each of the 10*20*2*3 vertices that make up the board
 //Initially, all will be set to black. As tiles are placed, sets of 6 vertices (2 triangles; 1 square)
@@ -194,9 +197,8 @@ void nudge(int cellOffsetX, int cellOffsetY) {
 
 void shuffleAndUpdateColours() {
 	vec4 temp = currTileColours[0];
-	currTileColours[0] = currTileColours[1];
-	currTileColours[1] = currTileColours[2];
-	currTileColours[2] = currTileColours[3];
+	for(int i = 0; i < 4 - 1; i++)
+		currTileColours[i] = currTileColours[i + 1];
 	currTileColours[3] = temp;
 	
 	// Update the color VBO of current tile
@@ -222,7 +224,7 @@ void newtile()
 	currTileShapeType = setRandTileShape(currTileShape);
 	currTileOrientation = rand() % MAX_TILE_ORIENTATIONS;
 	for (int i = 0; i < 4; i++) {
-		currTileColours[i] = randFruitColor();
+		currTileColours[i] = fruitColours[rand() % MaxFruitColours];
 		currTileOffset[i] = currTileShape[currTileOrientation][i]; // Get the 4 pieces of the new tile
 		nudge(currTileOffset[i].x, currTileOffset[i].y);
 	}
@@ -373,6 +375,14 @@ void init()
 
 //-------------------------------------------------------------------------------------------------------------------
 
+bool isInBoardBounds(vec2 p) {
+	if(p.x < 0 || p.x > 9)
+		return false;
+	if(p.y < 0 || p.y > 19)
+		return false;
+	return true;
+}
+
 // Rotates the current tile, if there is room
 void rotate()
 {      
@@ -383,9 +393,7 @@ void rotate()
 	for(int i = 0; i < 4; i++) {
 		int cellX = currTilePos.x + nextOrientation[i].x;
 		int cellY = currTilePos.y + nextOrientation[i].y;
-		bool xValid = cellX <= 9 && cellX >= 0;
-		bool yValid = cellY <= 19 && cellY >= 0;
-		if(!(xValid && yValid))
+		if(!isInBoardBounds(vec2(cellX, cellY)))
 			return;
 		if(board[cellX][cellY] == true)
 			return;
@@ -399,7 +407,7 @@ void rotate()
 
 // Checks if the specified row (0 is the bottom 19 the top) is full
 // If every cell in the row is occupied, it will clear that cell and everything above it will shift down one row
-void checkfullrow(int row)
+void checkFullRow(int row)
 {
 
 }
@@ -436,9 +444,7 @@ bool movetile(vec2 direction) {
 	for (int i = 0; i < 4; i++) {
 		int cellX = currTilePos.x + currTileOffset[i].x + direction.x;
 		int cellY = currTilePos.y + currTileOffset[i].y + direction.y;
-		if(cellX < 0 || cellX > 9)
-			return false;
-		if(cellY < 0 || cellY > 19)
+		if(!isInBoardBounds(vec2(cellX, cellY)))
 			return false;
 		if(board[cellX][cellY] == true)
 			return false;
@@ -567,6 +573,44 @@ bool freeToFall() {
 
 //-------------------------------------------------------------------------------------------------------------------
 
+vec4 getCellColour(vec2 p) {
+	vec4 pCellColour = boardcolours[6*(10*(int)p.y + (int)p.x)];
+	cout << "pCellColour: " << pCellColour.x << " " << pCellColour.y << " " <<pCellColour.z <<" "<<pCellColour.w << endl;
+	for(int i = 0; i < MaxFruitColours; i++) {
+		if(fruitColours[i] == pCellColour)
+			cout << "COLOUR: " << i << endl;
+	}
+	return pCellColour;
+}
+
+int recursiveCheck(vec2 p) {
+
+	return 1;
+}
+
+void checkThreeFruits() {
+	for(int i = 0; i < 4; i++) {
+		vec2 topCell = currTilePos + currTileOffset[i] + vec2(0,1);
+		vec2 bottomCell = currTilePos + currTileOffset[i] + vec2(0,-1);
+		vec2 leftCell = currTilePos + currTileOffset[i] + vec2(-1,0);
+		vec2 rightCell = currTilePos + currTileOffset[i] + vec2(1,0);
+		if(isInBoardBounds(topCell) && isOccupied(topCell)) {
+			getCellColour(topCell);
+		}
+		if(isInBoardBounds(bottomCell) && isOccupied(bottomCell)) {
+			getCellColour(bottomCell);
+		}
+		if(isInBoardBounds(leftCell) && isOccupied(leftCell)) {
+			getCellColour(leftCell);
+		}
+		if(isInBoardBounds(rightCell) && isOccupied(rightCell)) {
+			getCellColour(rightCell);
+		}
+	}
+}
+
+//-------------------------------------------------------------------------------------------------------------------
+
 void tileDrop(int type) {
 	TileInfo value = TILE_TICK;
 	switch(type) {
@@ -579,6 +623,8 @@ void tileDrop(int type) {
 		currTilePos.y -= 1;
 	} else {
 		settile();
+		checkFullRow(currTilePos.y);
+		checkThreeFruits();
 		newtile();
 		value = TILE_CREATE;
 	}
