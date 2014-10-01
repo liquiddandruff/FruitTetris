@@ -35,6 +35,13 @@ enum TileShape {
 	TILE_SHAPE_S,
 	TILE_SHAPE_L
 };
+void printVec4(const vec4 &f) {
+	cout.precision(6);
+	cout << fixed << "Vec4: " << f.x << " " << f.y << " " <<f.z <<" "<<f.w << endl;
+}
+bool vec4Equal(const vec4 &a, const vec4 &b) {
+	return a.x==b.x && a.y==b.y && a.z==b.z && a.w==b.w;
+}
 
 // xsize and ysize represent the window size - updated if window is reshaped to prevent stretching of the game
 int xsize = 400; 
@@ -573,39 +580,34 @@ bool freeToFall() {
 
 //-------------------------------------------------------------------------------------------------------------------
 
-vec4 getCellColour(vec2 p) {
-	vec4 pCellColour = boardcolours[6*(10*(int)p.y + (int)p.x)];
-	cout << "pCellColour: " << pCellColour.x << " " << pCellColour.y << " " <<pCellColour.z <<" "<<pCellColour.w << endl;
-	for(int i = 0; i < MaxFruitColours; i++) {
-		if(fruitColours[i] == pCellColour)
-			cout << "COLOUR: " << i << endl;
-	}
-	return pCellColour;
+vec4 getCellColour(const vec2 &p) {
+	return boardcolours[6*(10*(int)p.y + (int)p.x)];
 }
 
-int recursiveCheck(vec2 p) {
-
-	return 1;
+int recursiveCheck(const vec2 &p, const vec2 &dir) {
+	if(dir.x == 0 && dir.y == 0) {
+		if(isInBoardBounds(p)) {
+			int vert = 1 + recursiveCheck(p, vec2(0, 1)) + recursiveCheck(p, vec2(0, -1));
+			int horz = 1 + recursiveCheck(p, vec2(1, 0)) + recursiveCheck(p, vec2(-1, 0));
+			return vert > horz ? vert : horz;
+		}
+	}
+	else {
+		if(isInBoardBounds(p + dir) && isOccupied(p + dir) && vec4Equal(getCellColour(p), getCellColour(p + dir)))
+			return 1 + recursiveCheck(p + dir, dir);
+		else 
+			return 0;
+	}
+	return 0;
 }
 
 void checkThreeFruits() {
+	printVec4(fruitColours[ColourOrange]);
+	printVec4(fruitColours[ColourApple]);
+	printVec4(fruitColours[ColourBanana]);
 	for(int i = 0; i < 4; i++) {
-		vec2 topCell = currTilePos + currTileOffset[i] + vec2(0,1);
-		vec2 bottomCell = currTilePos + currTileOffset[i] + vec2(0,-1);
-		vec2 leftCell = currTilePos + currTileOffset[i] + vec2(-1,0);
-		vec2 rightCell = currTilePos + currTileOffset[i] + vec2(1,0);
-		if(isInBoardBounds(topCell) && isOccupied(topCell)) {
-			getCellColour(topCell);
-		}
-		if(isInBoardBounds(bottomCell) && isOccupied(bottomCell)) {
-			getCellColour(bottomCell);
-		}
-		if(isInBoardBounds(leftCell) && isOccupied(leftCell)) {
-			getCellColour(leftCell);
-		}
-		if(isInBoardBounds(rightCell) && isOccupied(rightCell)) {
-			getCellColour(rightCell);
-		}
+		int largestGroup = recursiveCheck(currTilePos + currTileOffset[i], vec2(0, 0));
+		cout << "GOOD: " << largestGroup << endl;
 	}
 }
 
