@@ -16,6 +16,7 @@ Modified in Sep 2014 by Honghua Li (honghual@sfu.ca).
 
 #include "include/Angel.h"
 #include <cstdlib>
+#include <vector>
 #include <iostream>
 
 using namespace std;
@@ -105,6 +106,7 @@ TileShape setRandTileShape(vec2 _tile[][4]) {
 // colors
 const vec4 white  = vec4(1.0, 1.0, 1.0, 1.0);
 const vec4 black  = vec4(0.0, 0.0, 0.0, 1.0); 
+const vec4 boardFreeColour = vec4(white);
 
 // fruit colors: https://kuler.adobe.com/create/color-wheel/?base=2&rule=Custom&selected=3&name=My%20Kuler%20Theme&mode=rgb&rgbvalues=1,0.8626810137791381,0,0.91,0.5056414909356977,0,1,0.10293904996979109,0,0.5587993310653088,0,0.91,0.1658698853207745,1,0.10159077034733333&swatchOrder=0,1,2,3,4
 const vec4 grape  = vec4(142/255.0 , 54/255.0  , 232/255.0 , 1.0);
@@ -129,7 +131,10 @@ const vec4 fruitColours[] = {grape, apple, banana, pear, orange};
 //board[x][y] represents whether the cell (x,y) is occupied
 bool board[10][20]; 
 
-bool isOccupied(vec2 p) {
+void setCellOccupied(const vec2 &p, bool o) {
+	board[(int)p.x][(int)p.y] = o;
+}
+bool isCellOccupied(const vec2 &p) {
 	return board[(int)p.x][(int)p.y];
 }
 
@@ -288,13 +293,13 @@ void initBoard()
 	// *** Generate the geometric data
 	vec4 boardpoints[1200];
 	for (int i = 0; i < 1200; i++)
-		boardcolours[i] = white; // Let the empty cells on the board be black
+		boardcolours[i] = boardFreeColour; // Let the empty cells on the board be black
 	// Each cell is a square (2 triangles with 6 vertices)
 	for (int i = 0; i < 20; i++){
 		for (int j = 0; j < 10; j++)
-		{		
+		{
 			vec4 p1 = vec4(33.0 + (j * 33.0), 33.0 + (i * 33.0), .5, 1); // bottom left
-			vec4 p2 = vec4(33.0 + (j * 33.0), 66.0 + (i * 33.0), .5, 1); // bottom right
+			vec4 p2 = vec4(33.0 + (j * 33.0), 66.0 + (i * 33.0), .5, 1); // top left
 			vec4 p3 = vec4(66.0 + (j * 33.0), 33.0 + (i * 33.0), .5, 1); // bottom right
 			vec4 p4 = vec4(66.0 + (j * 33.0), 66.0 + (i * 33.0), .5, 1); // top right
 			
@@ -424,7 +429,6 @@ void checkFullRow(int row)
 // Places the current tile - update the board vertex colour VBO and the array maintaining occupied cells
 void settile()
 {
-
 	for(int i = 0; i < 4; i++) {
 		int cellX = currTilePos.x + currTileOffset[i].x;
 		int cellY = currTilePos.y + currTileOffset[i].y;
@@ -584,30 +588,47 @@ vec4 getCellColour(const vec2 &p) {
 	return boardcolours[6*(10*(int)p.y + (int)p.x)];
 }
 
-int recursiveCheck(const vec2 &p, const vec2 &dir) {
+void removeTileFromBoard(const vec2 &p) {
+	setCellOccupied(p, false);
+	int cellX = p.x; int cellY = p.y;
+	boardcolours[6*(10*cellY + cellX)    ] = boardFreeColour;
+	boardcolours[6*(10*cellY + cellX) + 1] = boardFreeColour;
+	boardcolours[6*(10*cellY + cellX) + 2] = boardFreeColour;
+	boardcolours[6*(10*cellY + cellX) + 3] = boardFreeColour;
+	boardcolours[6*(10*cellY + cellX) + 4] = boardFreeColour;
+	boardcolours[6*(10*cellY + cellX) + 5] = boardFreeColour;
+
+	// Bind the VBO containing current board colors
+	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[BoardColourBO]); 
+	glBufferData(GL_ARRAY_BUFFER, 1200*sizeof(vec4), boardcolours, GL_DYNAMIC_DRAW);
+}
+
+int recursiveCheck(const vec2 &p, const vec2 &dir, vector<vec2> *c) {
 	if(dir.x == 0 && dir.y == 0) {
 		if(isInBoardBounds(p)) {
-			int vert = 1 + recursiveCheck(p, vec2(0, 1)) + recursiveCheck(p, vec2(0, -1));
-			int horz = 1 + recursiveCheck(p, vec2(1, 0)) + recursiveCheck(p, vec2(-1, 0));
+			c->push_back(vec2(p));
+			int vert = 1 + recursiveCheck(p, vec2(0, 1), c) + recursiveCheck(p, vec2(0, -1), c);
+			int horz = 1 + recursiveCheck(p, vec2(1, 0), c) + recursiveCheck(p, vec2(-1, 0), c);
 			return vert > horz ? vert : horz;
-		}
+		} else return 0;
 	}
 	else {
-		if(isInBoardBounds(p + dir) && isOccupied(p + dir) && vec4Equal(getCellColour(p), getCellColour(p + dir)))
-			return 1 + recursiveCheck(p + dir, dir);
-		else 
-			return 0;
+		if(isInBoardBounds(p + dir) && isCellOccupied(p + dir) && vec4Equal(getCellColour(p), getCellColour(p + dir))) {
+			c->push_back(vec2(p + dir));
+			return 1 + recursiveCheck(p + dir, dir, c);
+		} else return 0;
 	}
-	return 0;
 }
 
 void checkThreeFruits() {
-	printVec4(fruitColours[ColourOrange]);
-	printVec4(fruitColours[ColourApple]);
-	printVec4(fruitColours[ColourBanana]);
 	for(int i = 0; i < 4; i++) {
-		int largestGroup = recursiveCheck(currTilePos + currTileOffset[i], vec2(0, 0));
+		vector<vec2> group;
+		int largestGroup = recursiveCheck(currTilePos + currTileOffset[i], vec2(0, 0), &group);
 		cout << "GOOD: " << largestGroup << endl;
+		for(int k = 0; largestGroup >= 3 && k < largestGroup; k++) {
+			removeTileFromBoard(group[k]);
+			cout << group[k] << endl;
+		}
 	}
 }
 
