@@ -23,19 +23,15 @@ using namespace std;
 
 #define TILE_DROP_SPEED 200
 #define TILE_DROP_SPEED_FAST TILE_DROP_SPEED/10
-#define MAX_TILE_SHAPES 3
 #define MAX_TILE_ORIENTATIONS 4
+#define BOARD_WIDTH 10
+#define BOARD_HEIGHT 20
 
 enum TileInfo {
 	TILE_CREATE,
 	TILE_TICK
 };
 
-enum TileShape {
-	TILE_SHAPE_I,
-	TILE_SHAPE_S,
-	TILE_SHAPE_L
-};
 void printVec4(const vec4 &f) {
 	cout.precision(6);
 	cout << fixed << "Vec4: " << f.x << " " << f.y << " " <<f.z <<" "<<f.w << endl;
@@ -51,55 +47,26 @@ int ysize = 720;
 int tileDropSpeed = TILE_DROP_SPEED;
 // current tile
 vec2 currTileOffset[4]; // An array of 4 2d vectors representing displacement from a 'center' piece of the tile, on the grid
-vec2 currTilePos = vec2(5, 19); // The position of the current tile using grid coordinates ((0,0) is the bottom left corner)
-vec2 currTileShape[4][4];
-TileShape currTileShapeType = TILE_SHAPE_I;
-int currTileOrientation = 0;
+vec2 currTilePos = vec2(5, BOARD_HEIGHT - 1); // The position of the current tile using grid coordinates ((0,0) is the bottom left corner)
+int currTileShapeIndex = 0;
 vec4 currTileColours[4];
 
 //-------------------------------------------------------------------------------------------------------------------
 
+enum TileShape {
+	TileShapeI,
+	TileShapeS,
+	TileShapeL,
+	MaxTileShapes
+};
 // An array storing all possible orientations of all possible tiles
 // The 'tile' array will always be some element [i][j] of this array (an array of vec2)
 // all are in a,b,c,d order
-const vec2 allRotationsIshape[4][4] =
-	{{vec2(-2, 0), vec2(-1, 0), vec2(0, 0), vec2(1, 0)},
-	{vec2(0, -2), vec2(0, -1), vec2(0, 0), vec2(0, 1)},
-	{vec2(2, 0), vec2(1, 0), vec2(0, 0), vec2(-1, 0)},
-	{vec2(0, 2), vec2(0, 1), vec2(0, 0), vec2(0, -1)}};
-const vec2 allRotationsSshape[4][4] =
-	{{vec2(-1, -1), vec2(0, -1), vec2(0, 0), vec2(1, 0)},
-	{vec2(1, -1), vec2(1, 0), vec2(0, 0), vec2(0, 1)},
-	{vec2(1, 1), vec2(0, 1), vec2(0, 0), vec2(-1, 0)},
-	{vec2(-1, 1), vec2(-1, 0), vec2(0, 0), vec2(0, -1)}};
-const vec2 allRotationsLshape[4][4] = 
-	{{vec2(-1, -1), vec2(-1,0), vec2(0, 0), vec2(1, 0)},
-	{vec2(1, -1), vec2(0, -1), vec2(0, 0), vec2(0, 1)},     
-	{vec2(1, 1), vec2(1, 0), vec2(0, 0), vec2(-1,  0)},  
-	{vec2(-1, 1), vec2(0, 1), vec2(0, 0), vec2(0, -1)}};
+const vec2 allShapes[MaxTileShapes][4] =
+	{{vec2(-2, 0), vec2(-1, 0), vec2(0, 0), vec2(1, 0)}, // I
+	{vec2(-1, -1), vec2(0, -1), vec2(0, 0), vec2(1, 0)}, // S
+	{vec2(-1, -1), vec2(-1,0), vec2(0, 0), vec2(1, 0)}}; // L
 
-void changeTileFromAtoB(vec2 from[][4], const vec2 to[][4]) {
-	for(int i = 0; i < 4; i++) {
-		for(int k = 0; k < 4; k++) {
-			from[i][k].x = to[i][k].x;
-			from[i][k].y = to[i][k].y;
-		}
-	}
-}
-
-TileShape setTileShape(vec2 _tile[][4], TileShape type) {
-	switch(type) {
-		case TILE_SHAPE_I: changeTileFromAtoB(_tile, allRotationsIshape); break;
-		case TILE_SHAPE_S: changeTileFromAtoB(_tile, allRotationsSshape); break;
-		case TILE_SHAPE_L: changeTileFromAtoB(_tile, allRotationsLshape); break;
-		default: changeTileFromAtoB(_tile, allRotationsIshape); break;
-	}
-	return type;
-}
-
-TileShape setRandTileShape(vec2 _tile[][4]) {
-	return setTileShape(_tile, (TileShape)(rand() % MAX_TILE_SHAPES));
-}
 
 //-------------------------------------------------------------------------------------------------------------------
 
@@ -129,7 +96,7 @@ const vec4 fruitColours[] = {grape, apple, banana, pear, orange};
 //-------------------------------------------------------------------------------------------------------------------
  
 //board[x][y] represents whether the cell (x,y) is occupied
-bool board[10][20]; 
+bool board[BOARD_WIDTH][BOARD_HEIGHT]; 
 
 void setCellOccupied(const vec2 &p, bool o) {
 	board[(int)p.x][(int)p.y] = o;
@@ -201,8 +168,8 @@ void updatetile()
 void nudge(int cellOffsetX, int cellOffsetY) {
 	int cellX = currTilePos.x + cellOffsetX;
 	int cellY = currTilePos.y + cellOffsetY;
-	currTilePos.x -= cellX<0 ? cellOffsetX : cellX>9 ? cellOffsetX : 0;
-	currTilePos.y -= cellY>19 ? cellOffsetY : 0;
+	currTilePos.x -= cellX<0 ? cellOffsetX : cellX>BOARD_WIDTH - 1 ? cellOffsetX : 0;
+	currTilePos.y -= cellY>BOARD_HEIGHT - 1? cellOffsetY : 0;
 }
 
 //-------------------------------------------------------------------------------------------------------------------
@@ -229,15 +196,14 @@ void shuffleAndUpdateColours() {
 void newtile()
 {
 	tileDropSpeed = TILE_DROP_SPEED;
-	//currTilePos = vec2(5 , 19); // Put the tile at the top of the board
-	currTilePos = vec2(rand() % 10, 19); // Put the tile at the top of the board
+	//currTilePos = vec2(5 , BOARD_HEIGHT); // Put the tile at the top of the board
+	currTilePos = vec2(rand() % BOARD_WIDTH, BOARD_HEIGHT - 1); // Put the tile at the top of the board
 
 	// Update the geometry VBO of current tile
-	currTileShapeType = setRandTileShape(currTileShape);
-	currTileOrientation = rand() % MAX_TILE_ORIENTATIONS;
-	for (int i = 0; i < 4; i++) {
+	currTileShapeIndex = rand() % MaxTileShapes;
+	for(int i = 0; i < 4; i++) {
 		currTileColours[i] = fruitColours[rand() % MaxFruitColours];
-		currTileOffset[i] = currTileShape[currTileOrientation][i]; // Get the 4 pieces of the new tile
+		currTileOffset[i] = allShapes[currTileShapeIndex][i];
 		nudge(currTileOffset[i].x, currTileOffset[i].y);
 	}
 	shuffleAndUpdateColours();
@@ -295,8 +261,8 @@ void initBoard()
 	for (int i = 0; i < 1200; i++)
 		boardcolours[i] = boardFreeColour; // Let the empty cells on the board be black
 	// Each cell is a square (2 triangles with 6 vertices)
-	for (int i = 0; i < 20; i++){
-		for (int j = 0; j < 10; j++)
+	for (int i = 0; i < BOARD_HEIGHT; i++){
+		for (int j = 0; j < BOARD_WIDTH; j++)
 		{
 			vec4 p1 = vec4(33.0 + (j * 33.0), 33.0 + (i * 33.0), .5, 1); // bottom left
 			vec4 p2 = vec4(33.0 + (j * 33.0), 66.0 + (i * 33.0), .5, 1); // top left
@@ -304,18 +270,18 @@ void initBoard()
 			vec4 p4 = vec4(66.0 + (j * 33.0), 66.0 + (i * 33.0), .5, 1); // top right
 			
 			// Two points are reused
-			boardpoints[6*(10*i + j)    ] = p1;
-			boardpoints[6*(10*i + j) + 1] = p2;
-			boardpoints[6*(10*i + j) + 2] = p3;
-			boardpoints[6*(10*i + j) + 3] = p2;
-			boardpoints[6*(10*i + j) + 4] = p3;
-			boardpoints[6*(10*i + j) + 5] = p4;
+			boardpoints[6*(BOARD_WIDTH*i + j)    ] = p1;
+			boardpoints[6*(BOARD_WIDTH*i + j) + 1] = p2;
+			boardpoints[6*(BOARD_WIDTH*i + j) + 2] = p3;
+			boardpoints[6*(BOARD_WIDTH*i + j) + 3] = p2;
+			boardpoints[6*(BOARD_WIDTH*i + j) + 4] = p3;
+			boardpoints[6*(BOARD_WIDTH*i + j) + 5] = p4;
 		}
 	}
 
 	// Initially no cell is occupied
-	for (int i = 0; i < 10; i++)
-		for (int j = 0; j < 20; j++)
+	for (int i = 0; i < BOARD_WIDTH; i++)
+		for (int j = 0; j < BOARD_HEIGHT; j++)
 			board[i][j] = false; 
 
 
@@ -388,61 +354,49 @@ void init()
 //-------------------------------------------------------------------------------------------------------------------
 
 bool isInBoardBounds(vec2 p) {
-	if(p.x < 0 || p.x > 9)
+	if(p.x < 0 || p.x > BOARD_WIDTH - 1)
 		return false;
-	if(p.y < 0 || p.y > 19)
+	if(p.y < 0 || p.y > BOARD_HEIGHT - 1)
 		return false;
 	return true;
 }
 
 // Rotates the current tile, if there is room
-void rotate()
-{      
-	int nextORIENid = (currTileOrientation + 1) % MAX_TILE_ORIENTATIONS;
-	vec2 nextOrientation[4]; 
-	for (int i = 0; i < MAX_TILE_ORIENTATIONS; i++)
-		nextOrientation[i] = currTileShape[nextORIENid][i];
-	for(int i = 0; i < 4; i++) {
-		int cellX = currTilePos.x + nextOrientation[i].x;
-		int cellY = currTilePos.y + nextOrientation[i].y;
-		if(!isInBoardBounds(vec2(cellX, cellY)))
+void rotateCurrentTile() {      
+	vec2 nextOrientation[4];
+	for (int i = 0; i < 4; i++) {
+		nextOrientation[i] = vec2(-currTileOffset[i].y, currTileOffset[i].x);
+		if(!isInBoardBounds(currTilePos + nextOrientation[i]))
 			return;
-		if(board[cellX][cellY] == true)
+		if(isCellOccupied(currTilePos + nextOrientation[i])) 
 			return;
 	}
-	currTileOrientation = nextORIENid;
-	for (int i = 0; i < 4; i++)
+	for(int i = 0; i < 4; i++) 
 		currTileOffset[i] = nextOrientation[i];
 }
 
 //-------------------------------------------------------------------------------------------------------------------
 
-// Checks if the specified row (0 is the bottom 19 the top) is full
-// If every cell in the row is occupied, it will clear that cell and everything above it will shift down one row
-void checkFullRow(int row)
-{
-
+void setCellColour(const vec2 &p, const vec4 &c) {
+	boardcolours[6*(BOARD_WIDTH*(int)p.y + (int)p.x)    ] = c;
+	boardcolours[6*(BOARD_WIDTH*(int)p.y + (int)p.x) + 1] = c;
+	boardcolours[6*(BOARD_WIDTH*(int)p.y + (int)p.x) + 2] = c;
+	boardcolours[6*(BOARD_WIDTH*(int)p.y + (int)p.x) + 3] = c;
+	boardcolours[6*(BOARD_WIDTH*(int)p.y + (int)p.x) + 4] = c;
+	boardcolours[6*(BOARD_WIDTH*(int)p.y + (int)p.x) + 5] = c;
 }
 
-//-------------------------------------------------------------------------------------------------------------------
-
 // Places the current tile - update the board vertex colour VBO and the array maintaining occupied cells
-void settile()
-{
+void setTileColour(const vec2 &p) {
 	for(int i = 0; i < 4; i++) {
-		int cellX = currTilePos.x + currTileOffset[i].x;
-		int cellY = currTilePos.y + currTileOffset[i].y;
+		int cellX = p.x + currTileOffset[i].x;
+		int cellY = p.y + currTileOffset[i].y;
 		board[cellX][cellY] = true;
-
-		boardcolours[6*(10*cellY + cellX)    ] = currTileColours[i];
-		boardcolours[6*(10*cellY + cellX) + 1] = currTileColours[i];
-		boardcolours[6*(10*cellY + cellX) + 2] = currTileColours[i];
-		boardcolours[6*(10*cellY + cellX) + 3] = currTileColours[i];
-		boardcolours[6*(10*cellY + cellX) + 4] = currTileColours[i];
-		boardcolours[6*(10*cellY + cellX) + 5] = currTileColours[i];
+		setCellColour(vec2(cellX, cellY), currTileColours[i]);
 	}
+}
 
-	// Bind the VBO containing current board colors
+void updateBoard() {
 	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[BoardColourBO]); 
 	glBufferData(GL_ARRAY_BUFFER, 1200*sizeof(vec4), boardcolours, GL_DYNAMIC_DRAW);
 }
@@ -451,7 +405,7 @@ void settile()
 
 // Given (x,y), tries to move the tile x squares to the right and y squares down
 // Returns true if the tile was successfully moved, or false if there was some issue
-bool movetile(vec2 direction) {
+bool moveTile(vec2 direction) {
 	for (int i = 0; i < 4; i++) {
 		int cellX = currTilePos.x + currTileOffset[i].x + direction.x;
 		int cellY = currTilePos.y + currTileOffset[i].y + direction.y;
@@ -511,7 +465,7 @@ void special(int key, int x, int y)
 {
 	switch(key) {
 		case GLUT_KEY_UP:
-			rotate();
+			rotateCurrentTile();
 			cout << "GLUT_KEY_UP" << endl;
 			updatetile();
 			break;
@@ -521,14 +475,14 @@ void special(int key, int x, int y)
 			cout << "GLUT_KEY_DOWN" << endl;
 			break;
 		case GLUT_KEY_RIGHT:
-			if(movetile(vec2(1, 0))) {
+			if(moveTile(vec2(1, 0))) {
 				cout << "GLUT_KEY_RIGHT" << endl;
 				currTilePos.x += 1;
 				updatetile();
 			}
 			break;
 		case GLUT_KEY_LEFT:
-			if(movetile(vec2(-1, 0))) {
+			if(moveTile(vec2(-1, 0))) {
 				cout << "GLUT_KEY_LEFT" << endl;
 				currTilePos.x -= 1;
 				updatetile();
@@ -570,13 +524,15 @@ void idle(void)
 	glutPostRedisplay();
 }
 
-bool freeToFall() {
-	for(int i = 0; i < 4; i++) {
-		int cellX = currTilePos.x + currTileOffset[i].x;
-		int cellY = currTilePos.y + currTileOffset[i].y;
-		if(cellY - 1 < 0)
+bool cellFreeToFall(const vec2 &p) {
+		if((int)p.y - 1 < 0)
 			return false;
-		if(board[cellX][cellY - 1] == true)
+		return !isCellOccupied(p - vec2(0, 1));
+}
+
+bool tileFreeToFall(const vec2 &p) {
+	for(int i = 0; i < 4; i++) {
+		if(!cellFreeToFall(p + currTileOffset[i]))
 			return false;
 	}
 	return true;
@@ -590,17 +546,8 @@ vec4 getCellColour(const vec2 &p) {
 
 void removeTileFromBoard(const vec2 &p) {
 	setCellOccupied(p, false);
-	int cellX = p.x; int cellY = p.y;
-	boardcolours[6*(10*cellY + cellX)    ] = boardFreeColour;
-	boardcolours[6*(10*cellY + cellX) + 1] = boardFreeColour;
-	boardcolours[6*(10*cellY + cellX) + 2] = boardFreeColour;
-	boardcolours[6*(10*cellY + cellX) + 3] = boardFreeColour;
-	boardcolours[6*(10*cellY + cellX) + 4] = boardFreeColour;
-	boardcolours[6*(10*cellY + cellX) + 5] = boardFreeColour;
-
-	// Bind the VBO containing current board colors
-	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[BoardColourBO]); 
-	glBufferData(GL_ARRAY_BUFFER, 1200*sizeof(vec4), boardcolours, GL_DYNAMIC_DRAW);
+	setCellColour(p, boardFreeColour);
+	updateBoard();
 }
 
 int recursiveCheck(const vec2 &p, const vec2 &dir, vector<vec2> *c) {
@@ -611,8 +558,7 @@ int recursiveCheck(const vec2 &p, const vec2 &dir, vector<vec2> *c) {
 			int horz = 1 + recursiveCheck(p, vec2(1, 0), c) + recursiveCheck(p, vec2(-1, 0), c);
 			return vert > horz ? vert : horz;
 		} else return 0;
-	}
-	else {
+	} else {
 		if(isInBoardBounds(p + dir) && isCellOccupied(p + dir) && vec4Equal(getCellColour(p), getCellColour(p + dir))) {
 			c->push_back(vec2(p + dir));
 			return 1 + recursiveCheck(p + dir, dir, c);
@@ -620,16 +566,32 @@ int recursiveCheck(const vec2 &p, const vec2 &dir, vector<vec2> *c) {
 	}
 }
 
+//-------------------------------------------------------------------------------------------------------------------
+
+void checkFruitColumn(vec2 p) {
+	if(cellFreeToFall(p)) {
+		for(int y = p.y; y < BOARD_HEIGHT - 1; y++) {
+			//if(isCellOccupied(vec2(p.x, p.y)))
+		}
+	}
+}
+
 void checkThreeFruits() {
 	for(int i = 0; i < 4; i++) {
 		vector<vec2> group;
 		int largestGroup = recursiveCheck(currTilePos + currTileOffset[i], vec2(0, 0), &group);
-		cout << "GOOD: " << largestGroup << endl;
 		for(int k = 0; largestGroup >= 3 && k < largestGroup; k++) {
 			removeTileFromBoard(group[k]);
-			cout << group[k] << endl;
+			checkFruitColumn(group[k]);
 		}
 	}
+}
+
+// Checks if the specified row (0 is the bottom 19 the top) is full
+// If every cell in the row is occupied, it will clear that cell and everything above it will shift down one row
+void checkFullRow(int row)
+{
+
 }
 
 //-------------------------------------------------------------------------------------------------------------------
@@ -637,20 +599,21 @@ void checkThreeFruits() {
 void tileDrop(int type) {
 	TileInfo value = TILE_TICK;
 	switch(type) {
-		case TILE_CREATE: cout << "TILE_CREATE" << endl; break;
-		case TILE_TICK: cout << "TILE_TICK" << endl; break;
+		case TILE_CREATE: break; //cout << "TILE_CREATE" << endl; break;
+		case TILE_TICK: break; //cout << "TILE_TICK" << endl; break;
 		default: break;
 	}
 
-	if(freeToFall()) {
+	if(tileFreeToFall(currTilePos)) {
 		currTilePos.y -= 1;
 	} else {
-		settile();
+		setTileColour(currTilePos);
 		checkFullRow(currTilePos.y);
 		checkThreeFruits();
 		newtile();
 		value = TILE_CREATE;
 	}
+	updateBoard();
 	updatetile();
 	glutTimerFunc(tileDropSpeed, tileDrop, value);
 }
