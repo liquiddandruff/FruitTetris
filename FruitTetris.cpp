@@ -610,7 +610,7 @@ void removeTileFromBoard(const vec2 &p) {
 	updateBoard();
 }
 
-// true if horizontal group, false if vertical or fail, c can be null if we just want to know the type of group
+// fills the appropriate vectors with the appropriate cells
 void recursiveCheck(const vec2 &p, const vec2 &dir, vector<vec2> *h, vector<vec2> *v) {
 	if(dir.x == 0 && dir.y == 0 && isInBoardBounds(p)) {
 		vector<vec2> vertGroup; vertGroup.push_back(vec2(p));
@@ -644,7 +644,7 @@ void checkFruitColumn() {
 		if(columnChecked.insert(hole->x).second) { // successful insertion means this col hasn't been shifted down yet
 			vec2 baseCellToCheck = vec2(hole->x, hole->y - 1);
 			bool checkInNextIter = !isInBoardBounds(baseCellToCheck) || isCellOccupied(baseCellToCheck);
-			if(!checkInNextIter && find(removedTiles.begin(), removedTiles.end(), baseCellToCheck)!= removedTiles.end()) { cout << "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXxmissing"; checkInNextIter = true; }
+			if(!checkInNextIter && find(removedTiles.begin(), removedTiles.end(), baseCellToCheck)== removedTiles.end()) { cout << "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXxmissing"; checkInNextIter = true; }
 			for(int y = hole->y ; y < BOARD_HEIGHT - 1; y++) {
 				vec2 cellToBeDropped = vec2(hole->x, y + 1);
 				vec2 cellToBeFilled = vec2(hole->x, y);
