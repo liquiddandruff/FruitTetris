@@ -24,6 +24,7 @@ Modified in Sep 2014 by Honghua Li (honghual@sfu.ca).
 
 using namespace std;
 
+// misc constants
 #define TILE_DROP_SPEED 500
 #define TILE_DROP_SPEED_FAST 20
 #define MAX_TILE_ORIENTATIONS 4
@@ -37,6 +38,8 @@ void tileDrop(int type);
 void rotateCurrentTile(int n);
 bool isInBoardBounds(vec2 p);
 bool isInBoardBounds(int x, int y);
+vec4 getCellColour(const vec2 &p);
+
 enum TileInfo {
 	TILE_CREATE,
 	TILE_TICK,
@@ -44,7 +47,7 @@ enum TileInfo {
 	TILE_COLUMN_CHECK
 };
 int numCheckFruitColumnCallbacks = 0;
-vector<vec2> checkFruitColumnArgs;
+vector<vec2> cellsToAnimate;
 vector<vec2> removedTiles;
 set<int> columnDone;
 int numDropTileCallbacks = 0;
@@ -63,10 +66,6 @@ bool vec4Equal(const vec4 &a, const vec4 &b) {
 	return a.x==b.x && a.y==b.y && a.z==b.z && a.w==b.w;
 }
 
-// xsize and ysize represent the window size - updated if window is reshaped to prevent stretching of the game
-int xsize = 400; 
-int ysize = 720;
-
 int tileDropSpeed = TILE_DROP_SPEED;
 // current tile
 vec2 currTileOffset[4]; // An array of 4 2d vectors representing displacement from a 'center' piece of the tile, on the grid
@@ -75,34 +74,27 @@ int currTileShapeIndex = 0;
 vec4 currTileColours[4];
 
 //-------------------------------------------------------------------------------------------------------------------
-
 enum TileShape {
 	TileShapeI,
 	TileShapeS,
 	TileShapeL,
 	MaxTileShapes
 };
-
 const vec2 allShapes[MaxTileShapes][4] =
 	{{vec2(-2, 0), vec2(-1, 0), vec2(0, 0), vec2(1, 0)}, // I
 	{vec2(-1, -1), vec2(0, -1), vec2(0, 0), vec2(1, 0)}, // S
 	{vec2(-1, -1), vec2(-1,0), vec2(0, 0), vec2(1, 0)}}; // L
-
-
 //-------------------------------------------------------------------------------------------------------------------
-
 // colors
 const vec4 white  = vec4(1.0, 1.0, 1.0, 1.0);
 const vec4 black  = vec4(0.0, 0.0, 0.0, 1.0); 
 const vec4 cellFreeColour = vec4(white);
-
 // fruit colors: https://kuler.adobe.com/create/color-wheel/?base=2&rule=Custom&selected=3&name=My%20Kuler%20Theme&mode=rgb&rgbvalues=1,0.8626810137791381,0,0.91,0.5056414909356977,0,1,0.10293904996979109,0,0.5587993310653088,0,0.91,0.1658698853207745,1,0.10159077034733333&swatchOrder=0,1,2,3,4
 const vec4 grape  = vec4(142/255.0 , 54/255.0  , 232/255.0 , 1.0);
 const vec4 apple  = vec4(255/255.0 , 26/255.0  , 0/255.0  , 1.0);
 const vec4 banana = vec4(255/255.0 , 220/255.0 , 0/255.0  , 1.0);
 const vec4 pear   = vec4(42/255.0  , 255/255.0 , 26/255.0  , 1.0);
 const vec4 orange = vec4(232/255.0 , 129/255.0 , 0/255.0   , 1.0);
-
 enum FruitColours {
 	ColourGrape,
 	ColourApple,
@@ -111,9 +103,7 @@ enum FruitColours {
 	ColourOrange,
 	MaxFruitColours
 };
-
 const vec4 fruitColours[] = {grape, apple, banana, pear, orange};
-
 //-------------------------------------------------------------------------------------------------------------------
  
 //board[x][y] represents whether the cell (x,y) is occupied
@@ -122,12 +112,19 @@ bool board[BOARD_WIDTH][BOARD_HEIGHT];
 void setCellOccupied(const vec2 &p, bool o) {
 	board[(int)p.x][(int)p.y] = o;
 }
+void setCellOccupied(int x, int y, bool o) {
+	board[x][y] = o;
+}
 bool isCellOccupied(int x, int y) {
 	return board[x][y];
 }
 bool isCellOccupied(const vec2 &p) {
 	return board[(int)p.x][(int)p.y];
 }
+
+// xsize and ysize represent the window size - updated if window is reshaped to prevent stretching of the game
+int xsize = 400; 
+int ysize = 720;
 
 //An array containing the colour of each of the 10*20*2*3 vertices that make up the board
 //Initially, all will be set to black. As tiles are placed, sets of 6 vertices (2 triangles; 1 square)
@@ -155,6 +152,16 @@ enum VBO_IDs {
 GLuint vboIDs[6]; // Two Vertex Buffer Objects for each VAO (specifying vertex positions and colours, respectively)
 
 //-------------------------------------------------------------------------------------------------------------------
+bool isInBoardBounds(vec2 p) {
+	if(p.x < 0 || p.x > BOARD_WIDTH - 1)
+		return false;
+	if(p.y < 0 || p.y > BOARD_HEIGHT - 1)
+		return false;
+	return true;
+}
+bool isInBoardBounds(int x, int y) {
+	return isInBoardBounds(vec2(x, y));
+}
 
 // When the current tile is moved or rotated (or created), update the VBO containing its vertex position data
 void updatetile()
@@ -383,21 +390,12 @@ void init()
 
 	// set to default
 	glBindVertexArray(0);
-	glClearColor(0, 0, 0, 0);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+   	glEnable(GL_BLEND);
+	glClearColor(1, 1, 1, 1);
 }
 
 //-------------------------------------------------------------------------------------------------------------------
-
-bool isInBoardBounds(vec2 p) {
-	if(p.x < 0 || p.x > BOARD_WIDTH - 1)
-		return false;
-	if(p.y < 0 || p.y > BOARD_HEIGHT - 1)
-		return false;
-	return true;
-}
-bool isInBoardBounds(int x, int y) {
-	return isInBoardBounds(vec2(x, y));
-}
 
 // Rotates the current tile, nudge to make room
 void rotateCurrentTile(int n) {
@@ -420,6 +418,9 @@ void setCellColour(const vec2 &p, const vec4 &c) {
 	ix = p.x;
 	iy = p.y;
 }
+void setCellColour(int x, int y, const vec4 &c) {
+	setCellColour(vec2(x, y), c);
+}
 
 // Places the current tile - update the board vertex colour VBO and the array maintaining occupied cells
 void setTileColour(const vec2 &p) {
@@ -427,8 +428,25 @@ void setTileColour(const vec2 &p) {
 		int cellX = p.x + currTileOffset[i].x;
 		int cellY = p.y + currTileOffset[i].y;
 		board[cellX][cellY] = true;
-		setCellColour(vec2(cellX, cellY), currTileColours[i]);
+		setCellColour(cellX, cellY, currTileColours[i]);
 	}
+}
+
+vec4 getCellColour(const vec2 &p) {
+	return boardcolours[6*(10*(int)p.y + (int)p.x)];
+}
+
+bool cellFreeToFall(const vec2 &p) {
+	if((int)p.y - 1 < 0) return false;
+	return !isCellOccupied(p - vec2(0, 1));
+}
+
+bool tileFreeToFall(const vec2 &p) {
+	for(int i = 0; i < 4; i++) {
+		if(!cellFreeToFall(p + currTileOffset[i]))
+			return false;
+	}
+	return true;
 }
 
 void updateBoard() {
@@ -456,7 +474,6 @@ bool moveTile(vec2 direction) {
 // Starts the game over - empties the board, creates new tiles, resets line counters
 void restart()
 {
-	checkFruitColumnArgs.clear();
 	numDropTileCallbacks = numFastDropTileCallbacks = numCheckFruitColumnCallbacks = 0;
 	numDropTileCallbacks++;
 	initBoard();
@@ -468,7 +485,6 @@ float y = 0.7f;
 // Draws the game
 void display()
 {
-
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	glUniform1i(locxsize, xsize); // x and y sizes are passed to the shader program to maintain shape of the vertices on screen
@@ -488,25 +504,38 @@ void display()
 	glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
 	glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, 'h');
 	glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, 'k');
+	
+	//setCellColour(*cell, vec4(lerp.x, lerp.y, lerp.z, lerp.w - lerp.w*lerp.w*0.01));
 
-	cout << "start test:" << endl;
+	/*Draw deletion animation*/
+	vector<vector<vec2>::iterator> markDeletion;
+	for(vector<vec2>::iterator cell = cellsToAnimate.begin(); cell != cellsToAnimate.end(); cell++) {
+		cout  << " F"; printVec2(*cell); cout << endl;
+		vec4 lerp = getCellColour(*cell);
+		if(lerp.w > 0.01 && !isCellOccupied(*cell)) {
+			setCellColour(*cell, vec4(lerp.x, lerp.y, lerp.z, lerp.w - lerp.w*0.08));
+		} else {
+			markDeletion.push_back(cell);
+		}
+	}
+	for(vector<vector<vec2>::iterator>::iterator d = markDeletion.begin(); d != markDeletion.end(); d++) cellsToAnimate.erase(*d);
+	updateBoard();
+
+
 	stringstream ss;
 	ss << currTilePos.x;
 	glRasterPos2f(0, 0);
 	glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
 	char c;
 	while(ss >> c) {
-		cout << c << endl;
 		glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, c);
 	}
 	glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, ',');
 	ss.clear(); ss.str("");
 	ss << currTilePos.y;
 	while(ss >> c) {
-		cout << c << endl;
 		glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, c);
 	}
-	cout << "end test:" << endl;
 	glutSwapBuffers();
 }
 
@@ -573,6 +602,17 @@ void keyboard(unsigned char key, int x, int y)
 			shuffleAndUpdateColours();
 			updatetile();
 			break;
+		case 't':
+			int test[] = {
+				3, 0, ColourApple, 3, 1, ColourApple,
+				4, 0, ColourApple, 4, 1, ColourApple, 4, 2, ColourGrape,
+				5, 0, ColourGrape, 5, 1, ColourGrape, 5, 2, ColourApple,
+			};
+			for(int i = 0; i < (int)sizeof(test)/(int)sizeof(int); i+=3) {
+				cout << '(' << test[i] << ','<< test[i+1] <<") :"<<i<< endl;
+				setCellColour(test[i], test[i+1], fruitColours[test[i+2]]);
+				setCellOccupied(test[i], test[i+1], true);
+			}
 	}
 	glutPostRedisplay();
 }
@@ -584,33 +624,18 @@ void idle(void)
 	glutPostRedisplay();
 }
 
-bool cellFreeToFall(const vec2 &p) {
-		if((int)p.y - 1 < 0)
-			return false;
-		return !isCellOccupied(p - vec2(0, 1));
-}
-
-bool tileFreeToFall(const vec2 &p) {
-	for(int i = 0; i < 4; i++) {
-		if(!cellFreeToFall(p + currTileOffset[i]))
-			return false;
-	}
-	return true;
-}
 
 //-------------------------------------------------------------------------------------------------------------------
 
-vec4 getCellColour(const vec2 &p) {
-	return boardcolours[6*(10*(int)p.y + (int)p.x)];
-}
 
 void removeTileFromBoard(const vec2 &p) {
 	setCellOccupied(p, false);
-	setCellColour(p, cellFreeColour);
-	updateBoard();
+	//setCellColour(p, cellFreeColour);
+	//updateBoard();
+	cellsToAnimate.push_back(p);
 }
 
-// fills the appropriate vectors with the appropriate cells
+// fills the appropriate vectors with
 void recursiveCheck(const vec2 &p, const vec2 &dir, vector<vec2> *h, vector<vec2> *v) {
 	if(dir.x == 0 && dir.y == 0 && isInBoardBounds(p)) {
 		vector<vec2> vertGroup; vertGroup.push_back(vec2(p));
@@ -644,7 +669,7 @@ void checkFruitColumn() {
 		if(columnChecked.insert(hole->x).second) { // successful insertion means this col hasn't been shifted down yet
 			vec2 baseCellToCheck = vec2(hole->x, hole->y - 1);
 			bool checkInNextIter = !isInBoardBounds(baseCellToCheck) || isCellOccupied(baseCellToCheck);
-			if(!checkInNextIter && find(removedTiles.begin(), removedTiles.end(), baseCellToCheck)== removedTiles.end()) { cout << "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXxmissing"; checkInNextIter = true; }
+			if(!checkInNextIter && find(removedTiles.begin(), removedTiles.end(), baseCellToCheck)!= removedTiles.end()) { cout << "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXxmissing"; checkInNextIter = true; }
 			for(int y = hole->y ; y < BOARD_HEIGHT - 1; y++) {
 				vec2 cellToBeDropped = vec2(hole->x, y + 1);
 				vec2 cellToBeFilled = vec2(hole->x, y);
