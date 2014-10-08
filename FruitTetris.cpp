@@ -15,7 +15,6 @@ Modified in Sep 2014 by Honghua Li (honghual@sfu.ca).
 */
 
 #include "include/Angel.h"
-#include <cstdlib>
 #include <set>
 #include <vector>
 #include <algorithm>
@@ -85,16 +84,16 @@ const vec2 allShapes[MaxTileShapes][4] =
 	{vec2(-1, -1), vec2(0, -1), vec2(0, 0), vec2(1, 0)}, // S
 	{vec2(-1, -1), vec2(-1,0), vec2(0, 0), vec2(1, 0)}}; // L
 //-------------------------------------------------------------------------------------------------------------------
-// colors
 const vec4 white  = vec4(1.0, 1.0, 1.0, 1.0);
+const vec4 gridColour = vec4(0.8, 0.8, 0.8, 0.8);
 const vec4 black  = vec4(0.0, 0.0, 0.0, 1.0); 
 const vec4 cellFreeColour = vec4(white);
 // fruit colors: https://kuler.adobe.com/create/color-wheel/?base=2&rule=Custom&selected=3&name=My%20Kuler%20Theme&mode=rgb&rgbvalues=1,0.8626810137791381,0,0.91,0.5056414909356977,0,1,0.10293904996979109,0,0.5587993310653088,0,0.91,0.1658698853207745,1,0.10159077034733333&swatchOrder=0,1,2,3,4
-const vec4 grape  = vec4(142/255.0 , 54/255.0  , 232/255.0 , 1.0);
-const vec4 apple  = vec4(255/255.0 , 26/255.0  , 0/255.0  , 1.0);
-const vec4 banana = vec4(255/255.0 , 220/255.0 , 0/255.0  , 1.0);
-const vec4 pear   = vec4(42/255.0  , 255/255.0 , 26/255.0  , 1.0);
-const vec4 orange = vec4(232/255.0 , 129/255.0 , 0/255.0   , 1.0);
+const vec4 grape  = vec4(142/255.0 ,  54/255.0 , 232/255.0 , 1.0);
+const vec4 apple  = vec4(255/255.0 ,  26/255.0 ,   0/255.0 , 1.0);
+const vec4 banana = vec4(255/255.0 , 220/255.0 ,   0/255.0 , 1.0);
+const vec4 pear   = vec4( 42/255.0 , 255/255.0 ,  26/255.0 , 1.0);
+const vec4 orange = vec4(232/255.0 , 129/255.0 ,   0/255.0 , 1.0);
 enum FruitColours {
 	ColourGrape,
 	ColourApple,
@@ -103,7 +102,7 @@ enum FruitColours {
 	ColourOrange,
 	MaxFruitColours
 };
-const vec4 fruitColours[] = {grape, apple, banana, pear, orange};
+const vec4 fruitColours[MaxFruitColours] = {grape, apple, banana, pear, orange};
 //-------------------------------------------------------------------------------------------------------------------
  
 //board[x][y] represents whether the cell (x,y) is occupied
@@ -275,7 +274,7 @@ void initGrid() {
 	}
 	// Make all grid lines white
 	for (int i = 0; i < 64; i++)
-		gridcolours[i] = white;
+		gridcolours[i] = gridColour;
 
 
 	// *** set up buffer objects
@@ -400,7 +399,7 @@ void init()
 // Rotates the current tile, nudge to make room
 void rotateCurrentTile(int n) {
 	vec2 nextOrientation[4];
-	for(int i = 0; i < 4; i++) nextOrientation[i] = vec2(-currTileOffset[i].y, currTileOffset[i].x);
+	for(int i = 0; i < 4; i++) nextOrientation[i] = vec2(currTileOffset[i].y, -currTileOffset[i].x);
 	for(int k = 0; k < n; k++) for(int i = 0; i < 4; i++) nextOrientation[i] = vec2(-nextOrientation[i].y, nextOrientation[i].x);
 	if(!nudgeCurrentTile(nextOrientation)) return;
 	for(int i = 0; i < 4; i++) currTileOffset[i] = nextOrientation[i];
@@ -460,11 +459,8 @@ void updateBoard() {
 // Returns true if the tile was successfully moved, or false if there was some issue
 bool moveTile(vec2 direction) {
 	for (int i = 0; i < 4; i++) {
-		int cellX = currTilePos.x + currTileOffset[i].x + direction.x;
-		int cellY = currTilePos.y + currTileOffset[i].y + direction.y;
-		if(!isInBoardBounds(vec2(cellX, cellY)))
-			return false;
-		if(board[cellX][cellY] == true)
+		vec2 newPos = currTilePos + currTileOffset[i] + direction;
+		if(!isInBoardBounds(newPos) || isCellOccupied(newPos))
 			return false;
 	}
 	return true;
@@ -510,7 +506,6 @@ void display()
 	/*Draw deletion animation*/
 	vector<vector<vec2>::iterator> markDeletion;
 	for(vector<vec2>::iterator cell = cellsToAnimate.begin(); cell != cellsToAnimate.end(); cell++) {
-		cout  << " F"; printVec2(*cell); cout << endl;
 		vec4 lerp = getCellColour(*cell);
 		if(lerp.w > 0.01 && !isCellOccupied(*cell)) {
 			setCellColour(*cell, vec4(lerp.x, lerp.y, lerp.z, lerp.w - lerp.w*0.08));
@@ -587,6 +582,17 @@ void special(int key, int x, int y)
 // Handles standard keypresses
 void keyboard(unsigned char key, int x, int y)
 {
+	int test[] = {
+		0, 0, ColourApple, 0, 1, ColourApple, 0, 2, ColourGrape, 0, 3, ColourGrape, 0, 4, ColourApple, 0, 5, ColourApple,
+		3, 0, ColourApple, 3, 1, ColourApple,
+		4, 0, ColourApple, 4, 1, ColourApple, 4, 2, ColourGrape,
+		5, 0, ColourGrape, 5, 1, ColourGrape, 5, 2, ColourApple,
+	};
+	int test2[] = {
+		4, 0, ColourApple, 4, 1, ColourGrape, 4, 2, ColourGrape,
+		5, 0, ColourApple, 5, 1, ColourApple, 5, 2, ColourGrape,
+		6, 1, ColourApple
+	};
 	switch(key) 
 	{
 		case 033: // Both escape key and 'q' cause the game to exit
@@ -603,16 +609,19 @@ void keyboard(unsigned char key, int x, int y)
 			updatetile();
 			break;
 		case 't':
-			int test[] = {
-				3, 0, ColourApple, 3, 1, ColourApple,
-				4, 0, ColourApple, 4, 1, ColourApple, 4, 2, ColourGrape,
-				5, 0, ColourGrape, 5, 1, ColourGrape, 5, 2, ColourApple,
-			};
 			for(int i = 0; i < (int)sizeof(test)/(int)sizeof(int); i+=3) {
 				cout << '(' << test[i] << ','<< test[i+1] <<") :"<<i<< endl;
 				setCellColour(test[i], test[i+1], fruitColours[test[i+2]]);
 				setCellOccupied(test[i], test[i+1], true);
 			}
+			break;
+		case 'z':
+			for(int i = 0; i < (int)sizeof(test2)/(int)sizeof(int); i+=3) {
+				cout << '(' << test2[i] << ','<< test2[i+1] <<") :"<<i<< endl;
+				setCellColour(test2[i], test2[i+1], fruitColours[test2[i+2]]);
+				setCellOccupied(test2[i], test2[i+1], true);
+			}
+			break;
 	}
 	glutPostRedisplay();
 }
@@ -656,24 +665,28 @@ void recursiveCheck(const vec2 &p, const vec2 &dir, vector<vec2> *h, vector<vec2
 void checkFruitColumn() {
 	static vector<vec2> checkNext; // from previous call
 	cout << "                 checkNExt: " << checkNext.size() << "    ";
-	for(vector<vec2>::iterator toCheck = checkNext.begin(); toCheck != checkNext.end(); toCheck++) {
+	for(vector<vec2>::iterator toCheck = checkNext.begin(); toCheck != checkNext.end();)  {
+		// detect marker. if marker detected, check the rest in next loop
+		if(toCheck->x == -1 && toCheck->y == -1) {
+			checkNext.erase(toCheck);
+			break; 
+		}
 		printVec2(*toCheck);
 		checkGroupedFruits(*toCheck);
+		toCheck = checkNext.erase(toCheck);
 	} cout << endl;
-	checkNext.clear();
 
 	sort(removedTiles.begin(), removedTiles.end(), sortByDecY());
 	set<int> columnChecked;
-	set<vector<vec2>::iterator> markDeletion;
-	for(vector<vec2>::iterator hole = removedTiles.begin(); hole != removedTiles.end(); hole++) {
+	for(vector<vec2>::iterator hole = removedTiles.begin(); hole != removedTiles.end();) {
 		if(columnChecked.insert(hole->x).second) { // successful insertion means this col hasn't been shifted down yet
 			vec2 baseCellToCheck = vec2(hole->x, hole->y - 1);
 			bool checkInNextIter = !isInBoardBounds(baseCellToCheck) || isCellOccupied(baseCellToCheck);
 			if(!checkInNextIter && find(removedTiles.begin(), removedTiles.end(), baseCellToCheck)!= removedTiles.end()) { cout << "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXxmissing"; checkInNextIter = true; }
-			for(int y = hole->y ; y < BOARD_HEIGHT - 1; y++) {
+			for(int y = hole->y; y < BOARD_HEIGHT - 1; y++) {
 				vec2 cellToBeDropped = vec2(hole->x, y + 1);
 				vec2 cellToBeFilled = vec2(hole->x, y);
-				if(isCellOccupied(cellToBeDropped)) {
+				if(isCellOccupied(cellToBeDropped) && !isCellOccupied(cellToBeFilled)) {
 					setCellOccupied(cellToBeDropped, false);
 					setCellOccupied(cellToBeFilled, true);
 					setCellColour(cellToBeFilled, getCellColour(cellToBeDropped));
@@ -681,10 +694,11 @@ void checkFruitColumn() {
 					if(checkInNextIter) checkNext.push_back(cellToBeFilled); // to next call
 				}
 			}
-			markDeletion.insert(hole);
-		}
+			hole = removedTiles.erase(hole);
+		} else hole++;
 	}
-	for(set<vector<vec2>::iterator>::iterator it = markDeletion.begin(); it != markDeletion.end(); it++) removedTiles.erase(*it);
+	// push a marker for current list of cells
+	checkNext.push_back(vec2(-1,-1));
 	glutTimerFunc(tileDropSpeed, tileDrop, TILE_COLUMN_CHECK);
 }
 
@@ -697,6 +711,8 @@ void checkGroupedFruits(const vec2 &p) {
 	for(int k = 0; k < (int)vertGroup.size(); k++) cout << "  " << vertGroup[k].x << "," << vertGroup[k].y; cout << endl;
 	horzGroup.size() >= MAX_FRUIT_GROUP ? group.swap(horzGroup) : group.swap(vertGroup);
 	for(int k = 0; group.size() >= MAX_FRUIT_GROUP && k < MAX_FRUIT_GROUP; k++) {
+		if(!isCellOccupied(group[k])) 
+			continue;
 		removedTiles.push_back(group[k]);
 		removeTileFromBoard(group[k]);
 	}
@@ -756,9 +772,9 @@ void tileDrop(int type) {
 						rowOffset+=checkFullRow(lowestYCellsFirst[i] - vec2(0, rowOffset));
 						vector<vec2> horzGroup, vertGroup;
 						recursiveCheck(lowestYCellsFirst[i], vec2(0, 0), &horzGroup, &vertGroup);
-						if(horzGroup.size() >= MAX_FRUIT_GROUP)
+						if(horzGroup.size() >= MAX_FRUIT_GROUP) {
 							checkGroupedFruits(lowestYCellsFirst[i]);
-						else if(i == 3)
+						} else if(i == 3)
 							for(int k = 0; k < 4; k++) checkGroupedFruits(lowestYCellsFirst[k]);
 					}
 					newtile();
