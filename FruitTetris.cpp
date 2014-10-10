@@ -14,6 +14,11 @@ by Rui Ma (ruim@sfu.ca) on 2014-03-04.
 Modified in Sep 2014 by Honghua Li (honghual@sfu.ca).
 */
 
+/* Steven Huang
+ * 301223245
+ * sha152
+ */
+
 #include "include/Angel.h"
 #include <set>
 #include <vector>
@@ -24,7 +29,7 @@ Modified in Sep 2014 by Honghua Li (honghual@sfu.ca).
 using namespace std;
 
 // misc constants
-#define TILE_DROP_SPEED 500
+#define TILE_DROP_SPEED 200
 #define TILE_DROP_SPEED_FAST 20
 #define MAX_TILE_ORIENTATIONS 4
 #define BOARD_WIDTH 10
@@ -32,6 +37,8 @@ using namespace std;
 #define MAX_FRUIT_GROUP 3
 
 // forward declarations
+int checkFullRow(const vec2 &p);
+void recursiveCheck(const vec2 &p, const vec2 &dir, vector<vec2> *h, vector<vec2> *v);
 void checkGroupedFruits(const vec2 &p);
 void tileDrop(int type);
 void rotateCurrentTile(int n);
@@ -39,23 +46,35 @@ bool isInBoardBounds(vec2 p);
 bool isInBoardBounds(int x, int y);
 vec4 getCellColour(const vec2 &p);
 
+enum Text {
+	TextScore,
+	TextCells,
+	TextRows,
+	TextGG,
+	TextMax
+};
+int gui[TextMax];
+
 enum TileInfo {
 	TILE_CREATE,
 	TILE_TICK,
 	TILE_TICK_FAST,
 	TILE_COLUMN_CHECK
 };
+// various callback variables to make sure only 1 callback is called at once
 int numCheckFruitColumnCallbacks = 0;
-vector<vec2> cellsToAnimate;
-vector<vec2> removedTiles;
-set<int> columnDone;
 int numDropTileCallbacks = 0;
 int numFastDropTileCallbacks = 0;
+// vector of removed cells to perform alpha modifications on
+vector<vec2> cellsToAnimate;
+// vector of removed cells to perform column drops on
+vector<vec2> removedCells;
 
 // vector sorting
 struct sortByDecY { bool operator() (vec2 const &L, vec2 const &R) { return L.y > R.y; } };
 struct sortByIncY { bool operator() (vec2 const &L, vec2 const &R) { return L.y < R.y; } };
 
+// Debug prints
 void printVec4(const vec4 &f) {
 	cout.precision(6);
 	cout << fixed << "Vec4: " << f.x << " " << f.y << " " <<f.z <<" "<<f.w << endl;
@@ -73,20 +92,29 @@ int currTileShapeIndex = 0;
 vec4 currTileColours[4];
 
 //-------------------------------------------------------------------------------------------------------------------
+// TileShape enum of list of valid shapes
 enum TileShape {
 	TileShapeI,
 	TileShapeS,
+	TileShapeZ,
+	TileShapeO,
+	TileShapeT,
+	TileShapeJ,
 	TileShapeL,
 	MaxTileShapes
 };
 const vec2 allShapes[MaxTileShapes][4] =
-	{{vec2(-2, 0), vec2(-1, 0), vec2(0, 0), vec2(1, 0)}, // I
-	{vec2(-1, -1), vec2(0, -1), vec2(0, 0), vec2(1, 0)}, // S
-	{vec2(-1, -1), vec2(-1,0), vec2(0, 0), vec2(1, 0)}}; // L
+	{{vec2(-2,  0), vec2(-1,  0), vec2(0, 0), vec2( 1,  0)},  // I
+	 {vec2(-1, -1), vec2( 0, -1), vec2(0, 0), vec2( 1,  0)},  // S
+	 {vec2( 1, -1), vec2( 0, -1), vec2(0, 0), vec2(-1,  0)},  // Z
+	 {vec2(-1, -1), vec2( 0, -1), vec2(0, 0), vec2(-1,  0)},  // O
+	 {vec2(-1,  0), vec2( 1,  0), vec2(0, 0), vec2( 0,  1)},  // T
+	 {vec2(-1,  1), vec2(-1,  0), vec2(0, 0), vec2( 1,  0)},  // J
+	 {vec2(-1, -1), vec2(-1,  0), vec2(0, 0), vec2( 1,  0)}}; // L
 //-------------------------------------------------------------------------------------------------------------------
-const vec4 white  = vec4(1.0, 1.0, 1.0, 1.0);
-const vec4 gridColour = vec4(0.8, 0.8, 0.8, 0.8);
-const vec4 black  = vec4(0.0, 0.0, 0.0, 1.0); 
+const vec4 white          = vec4(1.0, 1.0, 1.0, 1.0);
+const vec4 gridColour     = vec4(0.8, 0.8, 0.8, 0.8);
+const vec4 black          = vec4(0.0, 0.0, 0.0, 1.0);
 const vec4 cellFreeColour = vec4(white);
 // fruit colors: https://kuler.adobe.com/create/color-wheel/?base=2&rule=Custom&selected=3&name=My%20Kuler%20Theme&mode=rgb&rgbvalues=1,0.8626810137791381,0,0.91,0.5056414909356977,0,1,0.10293904996979109,0,0.5587993310653088,0,0.91,0.1658698853207745,1,0.10159077034733333&swatchOrder=0,1,2,3,4
 const vec4 grape  = vec4(142/255.0 ,  54/255.0 , 232/255.0 , 1.0);
@@ -125,6 +153,7 @@ bool isCellOccupied(const vec2 &p) {
 int xsize = 400; 
 int ysize = 720;
 
+float fadeOut = 1.0f;
 //An array containing the colour of each of the 10*20*2*3 vertices that make up the board
 //Initially, all will be set to black. As tiles are placed, sets of 6 vertices (2 triangles; 1 square)
 //will be set to the appropriate colour in this array before updating the corresponding VBO
@@ -152,10 +181,8 @@ GLuint vboIDs[6]; // Two Vertex Buffer Objects for each VAO (specifying vertex p
 
 //-------------------------------------------------------------------------------------------------------------------
 bool isInBoardBounds(vec2 p) {
-	if(p.x < 0 || p.x > BOARD_WIDTH - 1)
-		return false;
-	if(p.y < 0 || p.y > BOARD_HEIGHT - 1)
-		return false;
+	if(p.x < 0 || p.x > BOARD_WIDTH - 1) return false;
+	if(p.y < 0 || p.y > BOARD_HEIGHT - 1) return false;
 	return true;
 }
 bool isInBoardBounds(int x, int y) {
@@ -165,8 +192,9 @@ bool isInBoardBounds(int x, int y) {
 // When the current tile is moved or rotated (or created), update the VBO containing its vertex position data
 void updatetile()
 {
+	if(gui[TextGG]) return;
 	// Bind the VBO containing current tile vertex positions
-	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[4]); 
+	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[CurrentTilePositionBO]); 
 
 	// For each of the 4 'cells' of the tile,
 	for (int i = 0; i < 4; i++) 
@@ -217,26 +245,30 @@ bool nudgeCurrentTile(int cellOffsetX, int cellOffsetY) {
 
 //-------------------------------------------------------------------------------------------------------------------
 
+void updateTileColours() {
+	// Update the color VBO of current tile
+	vec4 newcolours[24];
+	for (int i = 0; i < 24; i++)
+		newcolours[i] = currTileColours[i/6];
+	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[CurrentTileColourBO]); // Bind the VBO containing current tile vertex colours
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(newcolours), newcolours); // Put the colour data in the VBO
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
 void shuffleAndUpdateColours() {
 	vec4 temp = currTileColours[0];
 	for(int i = 0; i < 4 - 1; i++)
 		currTileColours[i] = currTileColours[i + 1];
 	currTileColours[3] = temp;
 	
-	// Update the color VBO of current tile
-	vec4 newcolours[24];
-	for (int i = 0; i < 24; i++)
-		newcolours[i] = currTileColours[i/6];
-
-	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[5]); // Bind the VBO containing current tile vertex colours
-	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(newcolours), newcolours); // Put the colour data in the VBO
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	updateTileColours();
 }
 
 //-------------------------------------------------------------------------------------------------------------------
 
 // Called at the start of play and every time a tile is placed
 void newtile() {
+	if(gui[TextGG]) return;
 	tileDropSpeed = TILE_DROP_SPEED;
 	//currTilePos = vec2(5 , BOARD_HEIGHT); // Put the tile at the top of the board
 	currTilePos = vec2(rand() % BOARD_WIDTH, BOARD_HEIGHT - 1); // Put the tile at the top of the board
@@ -244,7 +276,7 @@ void newtile() {
 	// Update the geometry VBO of current tile
 	currTileShapeIndex = rand() % MaxTileShapes;
 	for(int i = 0; i < 4; i++) {
-		currTileColours[i] = fruitColours[rand() % 2];
+		currTileColours[i] = fruitColours[rand() % MaxFruitColours];
 		currTileOffset[i] = allShapes[currTileShapeIndex][i];
 		nudgeCurrentTile(currTileOffset[i].x, currTileOffset[i].y);
 	}
@@ -252,6 +284,11 @@ void newtile() {
 	shuffleAndUpdateColours();
 	updatetile(); 
 
+	for(int i = 0; i < 4; i++) {
+		if(isCellOccupied(currTilePos + currTileOffset[i])) {
+			gui[TextGG] = 1;
+		}
+	}
 	glBindVertexArray(0);
 }
 
@@ -272,7 +309,7 @@ void initGrid() {
 		gridpoints[22 + 2*i] = vec4(33.0, (33.0 + (33.0 * i)), 0, 1);
 		gridpoints[22 + 2*i + 1] = vec4(363.0, (33.0 + (33.0 * i)), 0, 1);
 	}
-	// Make all grid lines white
+	// Make all grid lines coloured
 	for (int i = 0; i < 64; i++)
 		gridcolours[i] = gridColour;
 
@@ -283,14 +320,14 @@ void initGrid() {
 	glGenBuffers(2, vboIDs); // Create two Vertex Buffer Objects for this VAO (positions, colours)
 
 	// Grid vertex positions
-	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[0]); // Bind the first grid VBO (vertex positions)
+	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[GridPositionBO]); // Bind the first grid VBO (vertex positions)
 	glBufferData(GL_ARRAY_BUFFER, 64*sizeof(vec4), gridpoints, GL_STATIC_DRAW); // Put the grid points in the VBO
 	glVertexAttribPointer(vPosition, 4, GL_FLOAT, GL_FALSE, 0, 0); 
 	glEnableVertexAttribArray(vPosition); // Enable the attribute
 	
 	// Grid vertex colours
-	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[1]); // Bind the second grid VBO (vertex colours)
-	glBufferData(GL_ARRAY_BUFFER, 64*sizeof(vec4), gridcolours, GL_STATIC_DRAW); // Put the grid colours in the VBO
+	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[GridColourBO]); // Bind the second grid VBO (vertex colours)
+	glBufferData(GL_ARRAY_BUFFER, 64*sizeof(vec4), gridcolours, GL_DYNAMIC_DRAW); // Put the grid colours in the VBO
 	glVertexAttribPointer(vColor, 4, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(vColor); // Enable the attribute
 }
@@ -331,39 +368,37 @@ void initBoard() {
 	glGenBuffers(2, &vboIDs[2]);
 
 	// Grid cell vertex positions
-	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[2]);
+	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[BoardPositionBO]);
 	glBufferData(GL_ARRAY_BUFFER, 1200*sizeof(vec4), boardpoints, GL_STATIC_DRAW);
 	glVertexAttribPointer(vPosition, 4, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(vPosition);
 
 	// Grid cell vertex colours
-	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[3]);
+	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[BoardColourBO]);
 	glBufferData(GL_ARRAY_BUFFER, 1200*sizeof(vec4), boardcolours, GL_DYNAMIC_DRAW);
 	glVertexAttribPointer(vColor, 4, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(vColor);
 }
 
 // No geometry for current tile initially
-void initCurrentTile()
-{
+void initCurrentTile() {
 	glBindVertexArray(vaoIDs[2]);
 	glGenBuffers(2, &vboIDs[4]);
 
 	// Current tile vertex positions
-	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[4]);
+	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[CurrentTilePositionBO]);
 	glBufferData(GL_ARRAY_BUFFER, 24*sizeof(vec4), NULL, GL_DYNAMIC_DRAW);
 	glVertexAttribPointer(vPosition, 4, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(vPosition);
 
 	// Current tile vertex colours
-	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[5]);
+	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[CurrentTileColourBO]);
 	glBufferData(GL_ARRAY_BUFFER, 24*sizeof(vec4), NULL, GL_DYNAMIC_DRAW);
 	glVertexAttribPointer(vColor, 4, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(vColor);
 }
 
-void init()
-{
+void init() {
 	// Load shaders and use the shader program
 	GLuint program = InitShader("vshader.glsl", "fshader.glsl");
 	glUseProgram(program);
@@ -385,7 +420,17 @@ void init()
 	locysize = glGetUniformLocation(program, "ysize");
 
 	// Game initialization
+	// reset variables 
+	fadeOut = 1.0f;
+	gui[TextGG] = 0;
+	gui[TextScore] = 0;
+	gui[TextCells] = 0;
+	gui[TextRows] = 0;
+
 	newtile(); // create new next tile
+
+	numDropTileCallbacks++;
+	glutTimerFunc(tileDropSpeed, tileDrop, TILE_CREATE);
 
 	// set to default
 	glBindVertexArray(0);
@@ -398,15 +443,20 @@ void init()
 
 // Rotates the current tile, nudge to make room
 void rotateCurrentTile(int n) {
+	if(currTileShapeIndex == TileShapeO) { shuffleAndUpdateColours(); return; }
 	vec2 nextOrientation[4];
 	for(int i = 0; i < 4; i++) nextOrientation[i] = vec2(currTileOffset[i].y, -currTileOffset[i].x);
-	for(int k = 0; k < n; k++) for(int i = 0; i < 4; i++) nextOrientation[i] = vec2(-nextOrientation[i].y, nextOrientation[i].x);
+	// rotate additional n times for random rotation
+	for(int k = 0; k < n; k++) 
+		for(int i = 0; i < 4; i++) nextOrientation[i] = vec2(nextOrientation[i].y, -nextOrientation[i].x);
+	// if cannot nudge tile back into valid bounds, cancel rotation
 	if(!nudgeCurrentTile(nextOrientation)) return;
+	// otherwise apply this rotation
 	for(int i = 0; i < 4; i++) currTileOffset[i] = nextOrientation[i];
 }
 
 //-------------------------------------------------------------------------------------------------------------------
-int ix = 0; int iy=0;
+// sets colour of the specified board to c
 void setCellColour(const vec2 &p, const vec4 &c) {
 	boardcolours[6*(BOARD_WIDTH*(int)p.y + (int)p.x)    ] = c;
 	boardcolours[6*(BOARD_WIDTH*(int)p.y + (int)p.x) + 1] = c;
@@ -414,8 +464,6 @@ void setCellColour(const vec2 &p, const vec4 &c) {
 	boardcolours[6*(BOARD_WIDTH*(int)p.y + (int)p.x) + 3] = c;
 	boardcolours[6*(BOARD_WIDTH*(int)p.y + (int)p.x) + 4] = c;
 	boardcolours[6*(BOARD_WIDTH*(int)p.y + (int)p.x) + 5] = c;
-	ix = p.x;
-	iy = p.y;
 }
 void setCellColour(int x, int y, const vec4 &c) {
 	setCellColour(vec2(x, y), c);
@@ -435,6 +483,7 @@ vec4 getCellColour(const vec2 &p) {
 	return boardcolours[6*(10*(int)p.y + (int)p.x)];
 }
 
+// checks if cell is able to fall, returns true if able, false otherwise
 bool cellFreeToFall(const vec2 &p) {
 	if((int)p.y - 1 < 0) return false;
 	return !isCellOccupied(p - vec2(0, 1));
@@ -467,25 +516,34 @@ bool moveTile(vec2 direction) {
 }
 //-------------------------------------------------------------------------------------------------------------------
 
+// generically draws text to screen
+template<class T>
+void drawText(T str, float x, float y) {
+	stringstream ss(str);
+	glRasterPos2f(x, y);
+	char c;
+	while(ss >> noskipws >> c) glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, c);
+}
+
 // Starts the game over - empties the board, creates new tiles, resets line counters
 void restart()
 {
 	numDropTileCallbacks = numFastDropTileCallbacks = numCheckFruitColumnCallbacks = 0;
 	numDropTileCallbacks++;
-	initBoard();
-	newtile();
+	init();
 }
 //-------------------------------------------------------------------------------------------------------------------
+// moving text!
 float x = -1.0f;
 float y = 0.7f;
 // Draws the game
-void display()
-{
+void display() {
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	glUniform1i(locxsize, xsize); // x and y sizes are passed to the shader program to maintain shape of the vertices on screen
 	glUniform1i(locysize, ysize);
 
+	glColor4f(1.0f, 0.0f, 0.0f, fadeOut);
 	glBindVertexArray(vaoIDs[1]); // Bind the VAO representing the grid cells (to be drawn first)
 	glDrawArrays(GL_TRIANGLES, 0, 1200); // Draw the board (10*20*2 = 400 triangles)
 
@@ -495,42 +553,51 @@ void display()
 	glBindVertexArray(vaoIDs[0]); // Bind the VAO representing the grid lines (to be drawn on top of everything else)
 	glDrawArrays(GL_LINES, 0, 64); // Draw the grid lines (21+11 = 32 lines)
 
-	x+=0.01;
-	glRasterPos2f(x, y);
-	glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
-	glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, 'h');
-	glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, 'k');
-	
-	//setCellColour(*cell, vec4(lerp.x, lerp.y, lerp.z, lerp.w - lerp.w*lerp.w*0.01));
-
 	/*Draw deletion animation*/
-	vector<vector<vec2>::iterator> markDeletion;
-	for(vector<vec2>::iterator cell = cellsToAnimate.begin(); cell != cellsToAnimate.end(); cell++) {
+	for(vector<vec2>::iterator cell = cellsToAnimate.begin(); cell != cellsToAnimate.end();) {
 		vec4 lerp = getCellColour(*cell);
 		if(lerp.w > 0.01 && !isCellOccupied(*cell)) {
 			setCellColour(*cell, vec4(lerp.x, lerp.y, lerp.z, lerp.w - lerp.w*0.08));
-		} else {
-			markDeletion.push_back(cell);
-		}
+			cell++;
+		} else
+			cell = cellsToAnimate.erase(cell);
 	}
-	for(vector<vector<vec2>::iterator>::iterator d = markDeletion.begin(); d != markDeletion.end(); d++) cellsToAnimate.erase(*d);
 	updateBoard();
 
+	// fade out everyhing while fading in the game over text
+	if(gui[TextGG]) {
+		// fade in GG text
+		glColor4f(1.0f, 0.0f, 0.0f, 1 - fadeOut *0.04);
+		drawText("Game over!", -0.1, 0);
+		drawText("Press R to play again", -0.2, -0.2);
+		// fade board
+		for(int i = 0; i < 1200; i++)
+			boardcolours[i] = boardcolours[i] - vec4(0,0,0,fadeOut*0.04); // Let the empty cells on the board be black
+		// fade grid
+		vec4 gridcolours[64]; // One colour per vertex
+		for(int i = 0; i < 64; i++)
+			gridcolours[i] = vec4(gridColour.x,gridColour.y,gridColour.z,fadeOut*0.04);
+		glBindBuffer(GL_ARRAY_BUFFER, vboIDs[GridColourBO]); // Bind the second grid VBO (vertex colours)
+		glBufferData(GL_ARRAY_BUFFER, 64*sizeof(vec4), gridcolours, GL_DYNAMIC_DRAW); // Put the grid colours in the VBO
+		// fade out tile
+		for(int i = 0; i < 4; i++)
+			currTileColours[i] -= vec4(0,0,0, fadeOut*0.04);
+		updateTileColours();
+		// decrement fadeOut
+		fadeOut -= fadeOut > 0.01 ?  fadeOut * 0.01 : 0;
+	}
 
+
+	glColor4f(0.0f, 0.0f, 0.0f, fadeOut);
 	stringstream ss;
-	ss << currTilePos.x;
-	glRasterPos2f(0, 0);
-	glColor4f(1.0f, 0.0f, 0.0f, 1.0f);
-	char c;
-	while(ss >> c) {
-		glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, c);
-	}
-	glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, ',');
+	// noskipws to draw whitespace 
+	ss << noskipws << "Tile position: " << currTilePos.x << ',' << currTilePos.y;
+	drawText(ss.str(), -1, 0.95);
+	drawText("have fun!", x+=0.001, y);
 	ss.clear(); ss.str("");
-	ss << currTilePos.y;
-	while(ss >> c) {
-		glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, c);
-	}
+	ss << noskipws << "Score: " << gui[TextScore] << " Cells Deleted: " << gui[TextCells] << " Rows Deleted: " << gui[TextRows];
+	drawText(ss.str(), -0.5, -0.95);
+
 	glutSwapBuffers();
 }
 
@@ -538,8 +605,7 @@ void display()
 
 // Reshape callback will simply change xsize and ysize variables, which are passed to the vertex shader
 // to keep the game the same from stretching if the window is stretched
-void reshape(GLsizei w, GLsizei h)
-{
+void reshape(GLsizei w, GLsizei h) {
 	xsize = w;
 	ysize = h;
 	glViewport(0, 0, w, h);
@@ -547,11 +613,10 @@ void reshape(GLsizei w, GLsizei h)
 
 //-------------------------------------------------------------------------------------------------------------------
 // Handle arrow key keypresses
-void special(int key, int x, int y)
-{
+void special(int key, int x, int y) {
 	switch(key) {
 		case GLUT_KEY_UP:
-			rotateCurrentTile(2);
+			rotateCurrentTile(0);
 			updatetile();
 			break;
 		case GLUT_KEY_DOWN:
@@ -580,13 +645,14 @@ void special(int key, int x, int y)
 //-------------------------------------------------------------------------------------------------------------------
 
 // Handles standard keypresses
-void keyboard(unsigned char key, int x, int y)
-{
+void keyboard(unsigned char key, int x, int y) {
+	// various test cases. press t or z to find out!
 	int test[] = {
 		0, 0, ColourApple, 0, 1, ColourApple, 0, 2, ColourGrape, 0, 3, ColourGrape, 0, 4, ColourApple, 0, 5, ColourApple,
 		3, 0, ColourApple, 3, 1, ColourApple,
 		4, 0, ColourApple, 4, 1, ColourApple, 4, 2, ColourGrape,
 		5, 0, ColourGrape, 5, 1, ColourGrape, 5, 2, ColourApple,
+		7, 0, ColourGrape, 7, 1, ColourGrape, 7, 2, ColourApple
 	};
 	int test2[] = {
 		4, 0, ColourApple, 4, 1, ColourGrape, 4, 2, ColourGrape,
@@ -628,29 +694,27 @@ void keyboard(unsigned char key, int x, int y)
 
 //-------------------------------------------------------------------------------------------------------------------
 
-void idle(void)
-{
+void idle(void) {
 	glutPostRedisplay();
 }
 
-
 //-------------------------------------------------------------------------------------------------------------------
-
-
-void removeTileFromBoard(const vec2 &p) {
+// removes the cell at p from the board
+void removeCellFromBoard(const vec2 &p) {
+	gui[TextScore]+=5;
+	gui[TextCells]++;
 	setCellOccupied(p, false);
-	//setCellColour(p, cellFreeColour);
-	//updateBoard();
 	cellsToAnimate.push_back(p);
 }
 
-// fills the appropriate vectors with
+// fills the appropriate vectors into h and v with the grouped cells
 void recursiveCheck(const vec2 &p, const vec2 &dir, vector<vec2> *h, vector<vec2> *v) {
 	if(dir.x == 0 && dir.y == 0 && isInBoardBounds(p)) {
 		vector<vec2> vertGroup; vertGroup.push_back(vec2(p));
 		vector<vec2> horzGroup; horzGroup.push_back(vec2(p));
 		recursiveCheck(p, vec2(0, -1), NULL, &vertGroup); recursiveCheck(p, vec2(0, 1), NULL, &vertGroup);
 		recursiveCheck(p, vec2(1, 0), &horzGroup, NULL); recursiveCheck(p, vec2(-1, 0), &horzGroup, NULL);
+		// swaps the discoevered cells into h and v
 		h->swap(horzGroup); v->swap(vertGroup);
 	} else {
 		if(isInBoardBounds(p + dir) && isCellOccupied(p + dir) && vec4Equal(getCellColour(p), getCellColour(p + dir))) {
@@ -662,27 +726,31 @@ void recursiveCheck(const vec2 &p, const vec2 &dir, vector<vec2> *h, vector<vec2
 
 //-------------------------------------------------------------------------------------------------------------------
 
+// checks for removed cells in removedCells vector and moves the column down if needed, then recursively calls checkGroupedFruits
+// for the shifted cells if needed
 void checkFruitColumn() {
-	static vector<vec2> checkNext; // from previous call
-	cout << "                 checkNExt: " << checkNext.size() << "    ";
+	// filled in previous iterations
+	static vector<vec2> checkNext;
 	for(vector<vec2>::iterator toCheck = checkNext.begin(); toCheck != checkNext.end();)  {
-		// detect marker. if marker detected, check the rest in next loop
+		// detect the marker. if the marker is detected, break and check the rest in next time this function is called (next tick)
 		if(toCheck->x == -1 && toCheck->y == -1) {
 			checkNext.erase(toCheck);
 			break; 
 		}
+		gui[TextScore] += 10;
 		printVec2(*toCheck);
 		checkGroupedFruits(*toCheck);
 		toCheck = checkNext.erase(toCheck);
-	} cout << endl;
+	} // cout << endl;
 
-	sort(removedTiles.begin(), removedTiles.end(), sortByDecY());
+	// sort by decreasing Ys to prioritize removal of lower cells first
+	sort(removedCells.begin(), removedCells.end(), sortByDecY());
+	// set used to make sure only one removal is done per tick per each column
 	set<int> columnChecked;
-	for(vector<vec2>::iterator hole = removedTiles.begin(); hole != removedTiles.end();) {
+	for(vector<vec2>::iterator hole = removedCells.begin(); hole != removedCells.end();) {
 		if(columnChecked.insert(hole->x).second) { // successful insertion means this col hasn't been shifted down yet
 			vec2 baseCellToCheck = vec2(hole->x, hole->y - 1);
 			bool checkInNextIter = !isInBoardBounds(baseCellToCheck) || isCellOccupied(baseCellToCheck);
-			if(!checkInNextIter && find(removedTiles.begin(), removedTiles.end(), baseCellToCheck)!= removedTiles.end()) { cout << "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXxmissing"; checkInNextIter = true; }
 			for(int y = hole->y; y < BOARD_HEIGHT - 1; y++) {
 				vec2 cellToBeDropped = vec2(hole->x, y + 1);
 				vec2 cellToBeFilled = vec2(hole->x, y);
@@ -691,10 +759,11 @@ void checkFruitColumn() {
 					setCellOccupied(cellToBeFilled, true);
 					setCellColour(cellToBeFilled, getCellColour(cellToBeDropped));
 					setCellColour(cellToBeDropped, cellFreeColour);
-					if(checkInNextIter) checkNext.push_back(cellToBeFilled); // to next call
+					// make note to check for grouped fruits in next iteration
+					if(checkInNextIter) checkNext.push_back(cellToBeFilled);
 				}
 			}
-			hole = removedTiles.erase(hole);
+			hole = removedCells.erase(hole);
 		} else hole++;
 	}
 	// push a marker for current list of cells
@@ -702,6 +771,7 @@ void checkFruitColumn() {
 	glutTimerFunc(tileDropSpeed, tileDrop, TILE_COLUMN_CHECK);
 }
 
+// checks using recursion for all cells in same column/row that are the same colour of the cell in position p
 void checkGroupedFruits(const vec2 &p) {
 	vector<vec2> group, horzGroup, vertGroup;;
 	recursiveCheck(p, vec2(0, 0), &horzGroup, &vertGroup);
@@ -709,12 +779,14 @@ void checkGroupedFruits(const vec2 &p) {
 	for(int k = 0; k < (int)horzGroup.size(); k++) cout << "  " << horzGroup[k].x << "," << horzGroup[k].y;
 	cout << "         vertGroup.size(): " << vertGroup.size();
 	for(int k = 0; k < (int)vertGroup.size(); k++) cout << "  " << vertGroup[k].x << "," << vertGroup[k].y; cout << endl;
+
 	horzGroup.size() >= MAX_FRUIT_GROUP ? group.swap(horzGroup) : group.swap(vertGroup);
+
+	for(int k = 0; group.size() >= MAX_FRUIT_GROUP && k < MAX_FRUIT_GROUP; k++) 
+		if(!isCellOccupied(group[k])) { cout << "xxxxx found cell not uccupied" << endl; return; }
 	for(int k = 0; group.size() >= MAX_FRUIT_GROUP && k < MAX_FRUIT_GROUP; k++) {
-		if(!isCellOccupied(group[k])) 
-			continue;
-		removedTiles.push_back(group[k]);
-		removeTileFromBoard(group[k]);
+		removedCells.push_back(group[k]);
+		removeCellFromBoard(group[k]);
 	}
 	numCheckFruitColumnCallbacks++;
 	glutTimerFunc(tileDropSpeed, tileDrop, TILE_COLUMN_CHECK);
@@ -727,9 +799,11 @@ int checkFullRow(const vec2 &p) {
 	int columnsHit = 0;
 	for(int i = 0; i < BOARD_WIDTH && isCellOccupied(i, p.y); i++, columnsHit++);
 	if(columnsHit == BOARD_WIDTH) {
+		gui[TextScore] += 50;
+		gui[TextRows]++;
 		rowsRemoved++;
 		for(int x = 0; x < BOARD_WIDTH; x++) {
-			removeTileFromBoard(vec2(x, p.y));
+			removeCellFromBoard(vec2(x, p.y));
 			for(int y = p.y; y < BOARD_HEIGHT - 1; y++) {
 				vec2 cellToBeDropped = vec2(x, y + 1);
 				vec2 cellToBeFilled = vec2(x, y);
@@ -748,6 +822,7 @@ int checkFullRow(const vec2 &p) {
 
 //-------------------------------------------------------------------------------------------------------------------
 
+// main loop that handles the moving down of the tile and other game logic
 void tileDrop(int type) {
 	TileInfo value = TILE_TICK;
 	/*cout << "Y: " << type << endl;
@@ -774,16 +849,18 @@ void tileDrop(int type) {
 						recursiveCheck(lowestYCellsFirst[i], vec2(0, 0), &horzGroup, &vertGroup);
 						if(horzGroup.size() >= MAX_FRUIT_GROUP) {
 							checkGroupedFruits(lowestYCellsFirst[i]);
-						} else if(i == 3)
+						} else if(i == 3) {
 							for(int k = 0; k < 4; k++) checkGroupedFruits(lowestYCellsFirst[k]);
+						}
 					}
 					newtile();
 					value = TILE_CREATE;
+					
 				}
 				updateBoard();
 				updatetile();
 				glutTimerFunc(tileDropSpeed, tileDrop, value);
-			}
+			}	
 			return;
 		case TILE_TICK_FAST:
 			if(numFastDropTileCallbacks > 1) { numFastDropTileCallbacks--; return; }
@@ -807,10 +884,7 @@ void tileDrop(int type) {
 	}
 }
 
-//-------------------------------------------------------------------------------------------------------------------
-
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
 	glutInitWindowSize(xsize, ysize);
@@ -818,9 +892,6 @@ int main(int argc, char **argv)
 	glutCreateWindow("Fruit Tetris");
 	glewInit();
 	init();
-
-	numDropTileCallbacks++;
-	glutTimerFunc(tileDropSpeed, tileDrop, TILE_CREATE);
 
 	// Callback functions
 	glutDisplayFunc(display);
@@ -832,4 +903,3 @@ int main(int argc, char **argv)
 	glutMainLoop(); // Start main loop
 	return 0;
 }
-
