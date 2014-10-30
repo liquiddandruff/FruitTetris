@@ -10,8 +10,10 @@
 #include <stdio.h>
 #include <GL/gl.h>
 
-//----------------------------------------------------------------------------
 
+// hide the error since we don't use these anyways
+
+/*
 static const char*
 ErrorString( GLenum error )
 {
@@ -31,23 +33,18 @@ ErrorString( GLenum error )
     return msg;
 }
 
-//----------------------------------------------------------------------------
-
 static void
 _CheckError( const char* file, int line )
 {
-    GLenum  error = glGetError();
+	GLenum  error = glGetError();
 
-    do {
+	do {
 	fprintf( stderr, "[%s:%d] %s\n", file, line, ErrorString(error) );
-    } while ((error = glGetError()) != GL_NO_ERROR );
+	} while ((error = glGetError()) != GL_NO_ERROR );
 	
 }
 
-//----------------------------------------------------------------------------
-
 #define CheckError()  _CheckError( __FILE__, __LINE__ )
-
-//----------------------------------------------------------------------------
+*/
 
 #endif // !__CHECKERROR_H__

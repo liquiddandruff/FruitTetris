@@ -34,7 +34,7 @@ EXECUTABLE= FruitTetris
 # to your program here 
 
 # Linux (default)
-LDFLAGS = -lGL -lglut -lGLEW -lXext -lX11 -lm
+LDFLAGS = -lGLU -lGL -lglut -lGLEW -lXext -lX11 -lm
 
 # If you have other library files in a different directory add them here 
 INCLUDEFLAG= -I. -I$(INCLUDEDIR) -Iinclude/

@@ -46,6 +46,7 @@ bool isInBoardBounds(vec2 p);
 bool isInBoardBounds(int x, int y);
 vec4 getCellColour(const vec2 &p);
 
+// information to draw to screen
 enum Text {
 	TextScore,
 	TextCells,
@@ -153,6 +154,7 @@ bool isCellOccupied(const vec2 &p) {
 int xsize = 400; 
 int ysize = 720;
 
+// alpha value for fade out animation upon game over
 float fadeOut = 1.0f;
 //An array containing the colour of each of the 10*20*2*3 vertices that make up the board
 //Initially, all will be set to black. As tiles are placed, sets of 6 vertices (2 triangles; 1 square)
@@ -166,18 +168,26 @@ GLuint vColor;
 // locations of uniform variables in shader program
 GLuint locxsize;
 GLuint locysize;
+GLuint locModelView;
 
 // VAO and VBO
-GLuint vaoIDs[3]; // One VAO for each object: the grid, the board, the current piece
+enum VAO_IDs {
+	VAOGrid,
+	VAOBoard,
+	VAOTile,
+	MaxVaoIds
+};
+GLuint vaoIDs[MaxVaoIds]; // One VAO for each object: the grid, the board, the current piece;
 enum VBO_IDs {
 	GridPositionBO,
 	GridColourBO,
 	BoardPositionBO,
 	BoardColourBO,
 	CurrentTilePositionBO,
-	CurrentTileColourBO
+	CurrentTileColourBO,
+	MaxVboIds
 };
-GLuint vboIDs[6]; // Two Vertex Buffer Objects for each VAO (specifying vertex positions and colours, respectively)
+GLuint vboIDs[MaxVboIds]; // Two Vertex Buffer Objects for each VAO (specifying vertex positions and colours, respectively)
 
 //-------------------------------------------------------------------------------------------------------------------
 bool isInBoardBounds(vec2 p) {
@@ -190,8 +200,7 @@ bool isInBoardBounds(int x, int y) {
 }
 
 // When the current tile is moved or rotated (or created), update the VBO containing its vertex position data
-void updatetile()
-{
+void updatetile() {
 	if(gui[TextGG]) return;
 	// Bind the VBO containing current tile vertex positions
 	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[CurrentTilePositionBO]); 
@@ -300,14 +309,14 @@ void initGrid() {
 	vec4 gridcolours[64]; // One colour per vertex
 	// Vertical lines 
 	for (int i = 0; i < 11; i++){
-		gridpoints[2*i] = vec4((33.0 + (33.0 * i)), 33.0, 0, 1);
-		gridpoints[2*i + 1] = vec4((33.0 + (33.0 * i)), 693.0, 0, 1);
+		gridpoints[2*i] 	= vec4((33.0 + (33.0 * i)), 33.0, 0.5, 1);
+		gridpoints[2*i + 1] = vec4((33.0 + (33.0 * i)), 693.0, 3, 1);
 		
 	}
 	// Horizontal lines
 	for (int i = 0; i < 21; i++){
-		gridpoints[22 + 2*i] = vec4(33.0, (33.0 + (33.0 * i)), 0, 1);
-		gridpoints[22 + 2*i + 1] = vec4(363.0, (33.0 + (33.0 * i)), 0, 1);
+		gridpoints[22 + 2*i] 		= vec4(33.0, (33.0 + (33.0 * i)), 0.5, 1);
+		gridpoints[22 + 2*i + 1] 	= vec4(363.0, (33.0 + (33.0 * i)), 0.5, 1);
 	}
 	// Make all grid lines coloured
 	for (int i = 0; i < 64; i++)
@@ -316,13 +325,13 @@ void initGrid() {
 
 	// *** set up buffer objects
 	// Set up first VAO (representing grid lines)
-	glBindVertexArray(vaoIDs[0]); // Bind the first VAO
+	glBindVertexArray(vaoIDs[VAOGrid]); // Bind the first VAO
 	glGenBuffers(2, vboIDs); // Create two Vertex Buffer Objects for this VAO (positions, colours)
 
 	// Grid vertex positions
 	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[GridPositionBO]); // Bind the first grid VBO (vertex positions)
-	glBufferData(GL_ARRAY_BUFFER, 64*sizeof(vec4), gridpoints, GL_STATIC_DRAW); // Put the grid points in the VBO
-	glVertexAttribPointer(vPosition, 4, GL_FLOAT, GL_FALSE, 0, 0); 
+	glBufferData(GL_ARRAY_BUFFER, 64*sizeof(vec4), gridpoints, GL_DYNAMIC_DRAW); // Put the grid points in the VBO
+	glVertexAttribPointer(vPosition, 4, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(vPosition); // Enable the attribute
 	
 	// Grid vertex colours
@@ -342,10 +351,10 @@ void initBoard() {
 	for (int i = 0; i < BOARD_HEIGHT; i++){
 		for (int j = 0; j < BOARD_WIDTH; j++)
 		{
-			vec4 p1 = vec4(33.0 + (j * 33.0), 33.0 + (i * 33.0), .5, 1); // bottom left
-			vec4 p2 = vec4(33.0 + (j * 33.0), 66.0 + (i * 33.0), .5, 1); // top left
-			vec4 p3 = vec4(66.0 + (j * 33.0), 33.0 + (i * 33.0), .5, 1); // bottom right
-			vec4 p4 = vec4(66.0 + (j * 33.0), 66.0 + (i * 33.0), .5, 1); // top right
+			vec4 p1 = vec4(33.0 + (j * 33.0), 33.0 + (i * 33.0), .5, 1); // left bottom
+			vec4 p2 = vec4(33.0 + (j * 33.0), 66.0 + (i * 33.0), .5, 1); // left top
+			vec4 p3 = vec4(66.0 + (j * 33.0), 33.0 + (i * 33.0), .5, 1); // right bottom
+			vec4 p4 = vec4(66.0 + (j * 33.0), 66.0 + (i * 33.0), .5, 1); // right top
 			
 			// Two points are reused
 			boardpoints[6*(BOARD_WIDTH*i + j)    ] = p1;
@@ -364,8 +373,8 @@ void initBoard() {
 
 
 	// *** set up buffer objects
-	glBindVertexArray(vaoIDs[1]);
-	glGenBuffers(2, &vboIDs[2]);
+	glBindVertexArray(vaoIDs[VAOBoard]);
+	glGenBuffers(2, &vboIDs[BoardPositionBO]);
 
 	// Grid cell vertex positions
 	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[BoardPositionBO]);
@@ -382,8 +391,8 @@ void initBoard() {
 
 // No geometry for current tile initially
 void initCurrentTile() {
-	glBindVertexArray(vaoIDs[2]);
-	glGenBuffers(2, &vboIDs[4]);
+	glBindVertexArray(vaoIDs[VAOTile]);
+	glGenBuffers(2, &vboIDs[CurrentTilePositionBO]);
 
 	// Current tile vertex positions
 	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[CurrentTilePositionBO]);
@@ -418,6 +427,7 @@ void init() {
 	// The location of the uniform variables in the shader program
 	locxsize = glGetUniformLocation(program, "xsize"); 
 	locysize = glGetUniformLocation(program, "ysize");
+	locModelView = glGetUniformLocation(program, "ModelView");
 
 	// Game initialization
 	// reset variables 
@@ -435,7 +445,10 @@ void init() {
 	// set to default
 	glBindVertexArray(0);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-   	glEnable(GL_BLEND);
+   	glEnable(GL_BLEND | GL_DEPTH_TEST);
+	// pass if z values equal as well
+	glDepthFunc(GL_LEQUAL);
+	glClearDepth(1.0);
 	glClearColor(1, 1, 1, 1);
 }
 
@@ -538,36 +551,48 @@ float x = -1.0f;
 float y = 0.7f;
 // Draws the game
 void display() {
-	glClear(GL_COLOR_BUFFER_BIT);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glUniform1i(locxsize, xsize); // x and y sizes are passed to the shader program to maintain shape of the vertices on screen
 	glUniform1i(locysize, ysize);
+	mat4 ModelViewMatrix = mat4( 	.866, -.5, 0, 0,
+									.5, .866, 0, 0,
+									0, 0, 1, 1.2,
+									0, 0, 0, 1	);
+	glUniformMatrix4fv(locModelView, 1, GL_TRUE, ModelViewMatrix);
 
-	glColor4f(1.0f, 0.0f, 0.0f, fadeOut);
-	glBindVertexArray(vaoIDs[1]); // Bind the VAO representing the grid cells (to be drawn first)
-	glDrawArrays(GL_TRIANGLES, 0, 1200); // Draw the board (10*20*2 = 400 triangles)
 
-	glBindVertexArray(vaoIDs[2]); // Bind the VAO representing the current tile (to be drawn on top of the board)
-	glDrawArrays(GL_TRIANGLES, 0, 24); // Draw the current tile (8 triangles)
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+		glTranslatef(0, 0.3f, 0);
 
-	glBindVertexArray(vaoIDs[0]); // Bind the VAO representing the grid lines (to be drawn on top of everything else)
-	glDrawArrays(GL_LINES, 0, 64); // Draw the grid lines (21+11 = 32 lines)
+		glColor4f(1.0f, 0.0f, 0.0f, fadeOut);
+		glBindVertexArray(vaoIDs[VAOBoard]); // Bind the VAO representing the grid cells (to be drawn first)
+		glDrawArrays(GL_TRIANGLES, 0, 1200); // Draw the board (10*20*2 = 400 triangles)
 
-	/*Draw deletion animation*/
-	for(vector<vec2>::iterator cell = cellsToAnimate.begin(); cell != cellsToAnimate.end();) {
-		vec4 lerp = getCellColour(*cell);
-		if(lerp.w > 0.01 && !isCellOccupied(*cell)) {
-			setCellColour(*cell, vec4(lerp.x, lerp.y, lerp.z, lerp.w - lerp.w*0.08));
-			cell++;
-		} else
-			cell = cellsToAnimate.erase(cell);
-	}
-	updateBoard();
+		glBindVertexArray(vaoIDs[VAOTile]); // Bind the VAO representing the current tile (to be drawn on top of the board)
+		glDrawArrays(GL_TRIANGLES, 0, 24); // Draw the current tile (8 triangles)
 
+		glBindVertexArray(vaoIDs[VAOGrid]); // Bind the VAO representing the grid lines (to be drawn on top of everything else)
+		glDrawArrays(GL_LINES, 0, 64); // Draw the grid lines (21+11 = 32 lines)
+
+		/*Draw deletion animation*/
+		for(vector<vec2>::iterator cell = cellsToAnimate.begin(); cell != cellsToAnimate.end();) {
+			vec4 lerp = getCellColour(*cell);
+			if(lerp.w > 0.01 && !isCellOccupied(*cell)) {
+				setCellColour(*cell, vec4(lerp.x, lerp.y, lerp.z, lerp.w - lerp.w*0.08));
+				cell++;
+			} else
+				cell = cellsToAnimate.erase(cell);
+		}
+		updateBoard();
+
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
 	// fade out everyhing while fading in the game over text
 	if(gui[TextGG]) {
 		// fade in GG text
-		glColor4f(1.0f, 0.0f, 0.0f, 1 - fadeOut *0.04);
+		glColor4f(1.0f, 0.0f, 0.0f, 1 - fadeOut);
 		drawText("Game over!", -0.1, 0);
 		drawText("Press R to play again", -0.2, -0.2);
 		// fade board
@@ -584,7 +609,7 @@ void display() {
 			currTileColours[i] -= vec4(0,0,0, fadeOut*0.04);
 		updateTileColours();
 		// decrement fadeOut
-		fadeOut -= fadeOut > 0.01 ?  fadeOut * 0.01 : 0;
+		fadeOut -= fadeOut > 0.01 ?  fadeOut * 0.05 : 0;
 	}
 
 
@@ -601,8 +626,6 @@ void display() {
 	glutSwapBuffers();
 }
 
-//-------------------------------------------------------------------------------------------------------------------
-
 // Reshape callback will simply change xsize and ysize variables, which are passed to the vertex shader
 // to keep the game the same from stretching if the window is stretched
 void reshape(GLsizei w, GLsizei h) {
@@ -611,7 +634,6 @@ void reshape(GLsizei w, GLsizei h) {
 	glViewport(0, 0, w, h);
 }
 
-//-------------------------------------------------------------------------------------------------------------------
 // Handle arrow key keypresses
 void special(int key, int x, int y) {
 	switch(key) {
@@ -641,8 +663,6 @@ void special(int key, int x, int y) {
 			break;
 	}
 }
-
-//-------------------------------------------------------------------------------------------------------------------
 
 // Handles standard keypresses
 void keyboard(unsigned char key, int x, int y) {
@@ -692,13 +712,10 @@ void keyboard(unsigned char key, int x, int y) {
 	glutPostRedisplay();
 }
 
-//-------------------------------------------------------------------------------------------------------------------
-
 void idle(void) {
 	glutPostRedisplay();
 }
 
-//-------------------------------------------------------------------------------------------------------------------
 // removes the cell at p from the board
 void removeCellFromBoard(const vec2 &p) {
 	gui[TextScore]+=5;
@@ -751,6 +768,15 @@ void checkFruitColumn() {
 		if(columnChecked.insert(hole->x).second) { // successful insertion means this col hasn't been shifted down yet
 			vec2 baseCellToCheck = vec2(hole->x, hole->y - 1);
 			bool checkInNextIter = !isInBoardBounds(baseCellToCheck) || isCellOccupied(baseCellToCheck);
+			// check to make sure we can still go down
+			for(vector<vec2>::iterator h = removedCells.begin(); h != removedCells.end(); h++) {
+				if(h->x == baseCellToCheck.x) {
+					if(h->y == baseCellToCheck.y) {
+						checkInNextIter = true;
+						//cout << " FOUND IT ! " << endl;
+					}
+				} else continue;
+			}
 			for(int y = hole->y; y < BOARD_HEIGHT - 1; y++) {
 				vec2 cellToBeDropped = vec2(hole->x, y + 1);
 				vec2 cellToBeFilled = vec2(hole->x, y);
