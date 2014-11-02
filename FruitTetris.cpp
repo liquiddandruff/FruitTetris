@@ -168,8 +168,6 @@ GLuint vPosition;
 GLuint vColor;
 
 // locations of uniform variables in shader program
-GLuint locxsize;
-GLuint locysize;
 GLuint locMVP;
 
 mat4 Projection,View, Model;
@@ -334,26 +332,10 @@ void initGrid() {
 		gridpoints[22 + 2*i + 65] 	= vec4(363.0, (33.0 + (33.0 * i)), -33.00, 1);
 	}
 	// Depth lines
-	for (int i = 0; i < BOARD_HEIGHT; i++){
-		gridpoints[128 + i] = vec4(33.0 + 33.0 * i, 
-		for (int j = 0; j < BOARD_WIDTH; j++)
+	for (int i = 0; i < BOARD_HEIGHT + 1; i++){
+		for (int j = 0; j < BOARD_WIDTH + 1; j++)
 		{
-			vec4 p1 = vec4(33.0 + (j * 33.0), 33.0 + (i * 33.0), 33.1, 1); // front left bottom
-			vec4 p2 = vec4(33.0 + (j * 33.0), 66.0 + (i * 33.0), 33.1, 1); // front left top
-			vec4 p3 = vec4(66.0 + (j * 33.0), 33.0 + (i * 33.0), 33.1, 1); // front right bottom
-			vec4 p4 = vec4(66.0 + (j * 33.0), 66.0 + (i * 33.0), 33.1, 1); // front right top
-			vec4 p5 = vec4(33.0 + (j * 33.0), 33.0 + (i * 33.0), -33.1, 1); // back left bottom
-			vec4 p6 = vec4(33.0 + (j * 33.0), 66.0 + (i * 33.0), -33.1, 1); // back left top
-			vec4 p7 = vec4(66.0 + (j * 33.0), 33.0 + (i * 33.0), -33.1, 1); // back right bottom
-			vec4 p8 = vec4(66.0 + (j * 33.0), 66.0 + (i * 33.0), -33.1, 1); // back right top
-			
-			int index = 36*(BOARD_WIDTH*i + j);
-			face(boardpoints, index     , p1, p2, p3, p4); // front
-			face(boardpoints, index + 6 , p5, p6, p7, p8); // back
-			face(boardpoints, index + 12, p1, p2, p5, p6); // left
-			face(boardpoints, index + 18, p3, p4, p7, p8); // right
-			face(boardpoints, index + 24, p2, p4, p6, p8); // up
-			face(boardpoints, index + 30, p1, p3, p5, p7); // down
+			vec4 bottomLeftPoint = vec4(33.0 + (j * 33.0), 33.0 + (i * 33.0), 33.1, 1); // front left bottom
 		}
 	}
 	// Make all grid lines coloured
@@ -475,8 +457,6 @@ void init() {
 	initCurrentTile();
 
 	// The location of the uniform variables in the shader program
-	locxsize = glGetUniformLocation(program, "xsize"); 
-	locysize = glGetUniformLocation(program, "ysize");
 	locMVP = glGetUniformLocation(program, "MVP");
 
 	View = LookAt(
@@ -604,9 +584,8 @@ float y = 0.7f;
 void display() {
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	glUniform1i(locxsize, xsize);
-	glUniform1i(locysize, ysize);
 	Projection = Perspective(45, 1.0*xsize/ysize, 0.1, 500);
+	Projection = mat4();
 	mat4 Model = Translate(0, 0, 0);
 	
 	mat4 MVP = Projection * View * Model;
