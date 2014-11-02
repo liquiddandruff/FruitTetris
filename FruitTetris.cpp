@@ -460,9 +460,11 @@ void init() {
 	// The location of the uniform variables in the shader program
 	locMVP = glGetUniformLocation(program, "MVP");
 
+	vec3 topOfBoard = vec3(0, 33*BOARD_HEIGHT + 200, 850);
+	vec3 centerOfBoard = vec3(0, 33*BOARD_HEIGHT/2, 0);
 	View = LookAt(
-			vec3(33*3, 33*11, 1000),
-			vec3(33*5, 33*10, 0),
+			topOfBoard,
+			centerOfBoard,
 			vec3(0, 1, 0));
 
 	// Game initialization
@@ -586,7 +588,7 @@ void display() {
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	Projection = Perspective(45, 1.0*xsize/ysize, 0.1, 500);
-	mat4 Model = Translate(0, 0, 0);
+	mat4 Model = Translate(-33*BOARD_WIDTH/2.0 - 33, 0, 0);
 	
 	mat4 MVP = Projection * View * Model;
 	glUniformMatrix4fv(locMVP, 1, GL_TRUE, MVP);
