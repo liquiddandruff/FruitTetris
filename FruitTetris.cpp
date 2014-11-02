@@ -315,8 +315,9 @@ void newtile() {
 //-------------------------------------------------------------------------------------------------------------------
 
 void initGrid() {
-	vec4 gridpoints[64*2];
-	vec4 gridcolours[64*2];
+	// 462 = 21*11*2 is depth lines
+	vec4 gridpoints[64*2 + 462];
+	vec4 gridcolours[64*2 + 462];
 	// Vertical lines 
 	for (int i = 0; i < 11; i++){
 		gridpoints[2*i]      = vec4((33.0 + (33.0 * i)), 33.0, 33.00, 1);
@@ -333,13 +334,13 @@ void initGrid() {
 	}
 	// Depth lines
 	for (int i = 0; i < BOARD_HEIGHT + 1; i++){
-		for (int j = 0; j < BOARD_WIDTH + 1; j++)
-		{
-			vec4 bottomLeftPoint = vec4(33.0 + (j * 33.0), 33.0 + (i * 33.0), 33.1, 1); // front left bottom
+		for (int j = 0; j < BOARD_WIDTH + 1; j++) {
+			gridpoints[128 + 22*i + 2*j] 		= vec4(33.0 + (j * 33.0), 33.0 + (i * 33.0), 33.00, 1); // front left bottom
+			gridpoints[128 + 22*i + 2*j + 1] 	= vec4(33.0 + (j * 33.0), 33.0 + (i * 33.0), -33.00, 1); // back left bottom
 		}
 	}
 	// Make all grid lines coloured
-	for (int i = 0; i < 64*2; i++)
+	for (int i = 0; i < 64*2 + 462; i++)
 		gridcolours[i] = gridColour;
 
 
@@ -350,13 +351,13 @@ void initGrid() {
 
 	// Grid vertex positions
 	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[GridPositionBO]); // Bind the first grid VBO (vertex positions)
-	glBufferData(GL_ARRAY_BUFFER, 64*2*sizeof(vec4), gridpoints, GL_DYNAMIC_DRAW); // Put the grid points in the VBO
+	glBufferData(GL_ARRAY_BUFFER, (128 + 462)*sizeof(vec4), gridpoints, GL_DYNAMIC_DRAW); // Put the grid points in the VBO
 	glVertexAttribPointer(vPosition, 4, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(vPosition); // Enable the attribute
 	
 	// Grid vertex colours
 	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[GridColourBO]); // Bind the second grid VBO (vertex colours)
-	glBufferData(GL_ARRAY_BUFFER, 64*2*sizeof(vec4), gridcolours, GL_DYNAMIC_DRAW); // Put the grid colours in the VBO
+	glBufferData(GL_ARRAY_BUFFER, (128 + 462)*sizeof(vec4), gridcolours, GL_DYNAMIC_DRAW); // Put the grid colours in the VBO
 	glVertexAttribPointer(vColor, 4, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(vColor); // Enable the attribute
 }
@@ -585,7 +586,6 @@ void display() {
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	Projection = Perspective(45, 1.0*xsize/ysize, 0.1, 500);
-	Projection = mat4();
 	mat4 Model = Translate(0, 0, 0);
 	
 	mat4 MVP = Projection * View * Model;
@@ -599,7 +599,7 @@ void display() {
 	glDrawArrays(GL_TRIANGLES, 0, 24*6); // Draw the current tile (8 triangles)
 
 	glBindVertexArray(vaoIDs[VAOGrid]); // Bind the VAO representing the grid lines (to be drawn on top of everything else)
-	glDrawArrays(GL_LINES, 0, 128); // Draw the grid lines (21+11 = 32 lines)
+	glDrawArrays(GL_LINES, 0, 128 + 462);
 
 	/*Draw deletion animation*/
 	for(vector<vec2>::iterator cell = cellsToAnimate.begin(); cell != cellsToAnimate.end();) {
