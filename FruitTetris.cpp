@@ -464,11 +464,9 @@ void init() {
 	// The location of the uniform variables in the shader program
 	locMVP = glGetUniformLocation(program, "MVP");
 
-	// now in unit lenghs
-	vec3 topOfBoard = vec3(0, 3*BOARD_HEIGHT + 10, 300);
+	// Board is now in unit lengths
+	vec3 topOfBoard = vec3(0, BOARD_HEIGHT + 10, 24);
 	vec3 centerOfBoard = vec3(0, BOARD_HEIGHT/2, 0);
-	//vec3 topOfBoard = vec3(0, 100, 100);
-	//vec3 centerOfBoard = vec3(0, 33*2, 0);
 	View = LookAt(
 			topOfBoard,
 			centerOfBoard,
@@ -496,7 +494,9 @@ void init() {
 	glDepthFunc(GL_LEQUAL);
 	glClearDepth(1.0);
 	// Antialiasing
-	//glEnable(GL_LINE_SMOOTH);
+	glEnable(GL_MULTISAMPLE);
+	glHint(GL_MULTISAMPLE_FILTER_HINT_NV, GL_NICEST);
+	glEnable(GL_LINE_SMOOTH);
 }
 
 //-------------------------------------------------------------------------------------------------------------------
@@ -599,11 +599,11 @@ float y = 0.7f;
 void display() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	Projection = Perspective(45, 1.0*xsize/ysize, 10, 400);
+	Projection = Perspective(45, 1.0*xsize/ysize, 10, 100);
 	// Scale everything to unit length
 	mat4 Model = mat4();
 	Model *= Translate(0, BOARD_HEIGHT/2.0, 0);
-	Model *= Scale(0.33, 0.33, 0.33);  // scale to unit length
+	Model *= Scale(1.0/33, 1.0/33, 1.0/33);  // scale to unit length
 	Model *= Translate(-33*BOARD_WIDTH/2.0 - 33, -33*BOARD_HEIGHT/2.0 - 33, 0); // move to origin
 
 	mat4 MVP = Projection * View * Model;
