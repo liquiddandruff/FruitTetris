@@ -5,6 +5,9 @@ out vec4  fColor;
 
 void main() 
 { 
-    	fColor = color;
+	// discard if alpha is 0.0
+	if(color.w == 0.0)
+		discard;
+	fColor = color;
 } 
 

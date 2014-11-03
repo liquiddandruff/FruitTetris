@@ -117,7 +117,7 @@ const vec2 allShapes[MaxTileShapes][4] =
 const vec4 white          = vec4(1.0, 1.0, 1.0, 1.0);
 const vec4 gridColour     = vec4(0.8, 0.8, 0.8, 0.8);
 const vec4 black          = vec4(0.0, 0.0, 0.0, 1.0);
-const vec4 cellFreeColour = vec4(white);
+const vec4 cellFreeColour = vec4(1.0, 1.0, 1.0, 0.0);
 // fruit colors: https://kuler.adobe.com/create/color-wheel/?base=2&rule=Custom&selected=3&name=My%20Kuler%20Theme&mode=rgb&rgbvalues=1,0.8626810137791381,0,0.91,0.5056414909356977,0,1,0.10293904996979109,0,0.5587993310653088,0,0.91,0.1658698853207745,1,0.10159077034733333&swatchOrder=0,1,2,3,4
 const vec4 grape  = vec4(142/255.0 ,  54/255.0 , 232/255.0 , 1.0);
 const vec4 apple  = vec4(255/255.0 ,  26/255.0 ,   0/255.0 , 1.0);
@@ -170,6 +170,10 @@ GLuint vColor;
 // locations of uniform variables in shader program
 GLuint locMVP;
 
+void setMVP(mat4 &mvp) {
+	glUniformMatrix4fv(locMVP, 1, GL_TRUE, mvp);
+}
+
 mat4 Projection,View, Model;
 
 // VAO and VBO
@@ -216,14 +220,14 @@ void updatetile() {
 
 		// Create the 4 corners of the square - these vertices are using location in pixels
 		// These vertices are later converted by the vertex shader
-		vec4 p1 = vec4(33.0 + (x * 33.0), 33.0 + (y * 33.0), 33.1, 1); // front left bottom
-		vec4 p2 = vec4(33.0 + (x * 33.0), 66.0 + (y * 33.0), 33.1, 1); // front left top
-		vec4 p3 = vec4(66.0 + (x * 33.0), 33.0 + (y * 33.0), 33.1, 1); // front right bottom
-		vec4 p4 = vec4(66.0 + (x * 33.0), 66.0 + (y * 33.0), 33.1, 1); // front right top
-		vec4 p5 = vec4(33.0 + (x * 33.0), 33.0 + (y * 33.0), -33.1, 1); // back left bottom
-		vec4 p6 = vec4(33.0 + (x * 33.0), 66.0 + (y * 33.0), -33.1, 1); // back left top
-		vec4 p7 = vec4(66.0 + (x * 33.0), 33.0 + (y * 33.0), -33.1, 1); // back right bottom
-		vec4 p8 = vec4(66.0 + (x * 33.0), 66.0 + (y * 33.0), -33.1, 1); // back right top
+		vec4 p1 = vec4(33.0 + (x * 33.0), 33.0 + (y * 33.0), 16.50, 1); // front left bottom
+		vec4 p2 = vec4(33.0 + (x * 33.0), 66.0 + (y * 33.0), 16.50, 1); // front left top
+		vec4 p3 = vec4(66.0 + (x * 33.0), 33.0 + (y * 33.0), 16.50, 1); // front right bottom
+		vec4 p4 = vec4(66.0 + (x * 33.0), 66.0 + (y * 33.0), 16.50, 1); // front right top
+		vec4 p5 = vec4(33.0 + (x * 33.0), 33.0 + (y * 33.0), -16.50, 1); // back left bottom
+		vec4 p6 = vec4(33.0 + (x * 33.0), 66.0 + (y * 33.0), -16.50, 1); // back left top
+		vec4 p7 = vec4(66.0 + (x * 33.0), 33.0 + (y * 33.0), -16.50, 1); // back right bottom
+		vec4 p8 = vec4(66.0 + (x * 33.0), 66.0 + (y * 33.0), -16.50, 1); // back right top
 
 		// Two points are used by two triangles each
 		vec4 newpoints[36] = {	p1, p2, p3, p2, p3, p4,
@@ -320,23 +324,23 @@ void initGrid() {
 	vec4 gridcolours[64*2 + 462];
 	// Vertical lines 
 	for (int i = 0; i < 11; i++){
-		gridpoints[2*i]      = vec4((33.0 + (33.0 * i)), 33.0, 33.00, 1);
-		gridpoints[2*i + 1]  = vec4((33.0 + (33.0 * i)), 693.0, 33.00, 1);
-		gridpoints[2*i + 64] = vec4((33.0 + (33.0 * i)), 33.0, -33.00, 1);
-		gridpoints[2*i + 65] = vec4((33.0 + (33.0 * i)), 693.0, -33.00, 1);
+		gridpoints[2*i]      = vec4((33.0 + (33.0 * i)), 33.0, 16.50, 1);
+		gridpoints[2*i + 1]  = vec4((33.0 + (33.0 * i)), 693.0, 16.50, 1);
+		gridpoints[2*i + 64] = vec4((33.0 + (33.0 * i)), 33.0, -16.50, 1);
+		gridpoints[2*i + 65] = vec4((33.0 + (33.0 * i)), 693.0, -16.50, 1);
 	}
 	// Horizontal lines
 	for (int i = 0; i < 21; i++){
-		gridpoints[22 + 2*i] 		= vec4(33.0, (33.0 + (33.0 * i)), 33.00, 1);
-		gridpoints[22 + 2*i + 1] 	= vec4(363.0, (33.0 + (33.0 * i)), 33.00, 1);
-		gridpoints[22 + 2*i + 64]	= vec4(33.0, (33.0 + (33.0 * i)), -33.00, 1);
-		gridpoints[22 + 2*i + 65] 	= vec4(363.0, (33.0 + (33.0 * i)), -33.00, 1);
+		gridpoints[22 + 2*i] 		= vec4(33.0, (33.0 + (33.0 * i)), 16.50, 1);
+		gridpoints[22 + 2*i + 1] 	= vec4(363.0, (33.0 + (33.0 * i)), 16.50, 1);
+		gridpoints[22 + 2*i + 64]	= vec4(33.0, (33.0 + (33.0 * i)), -16.50, 1);
+		gridpoints[22 + 2*i + 65] 	= vec4(363.0, (33.0 + (33.0 * i)), -16.50, 1);
 	}
 	// Depth lines
 	for (int i = 0; i < BOARD_HEIGHT + 1; i++){
 		for (int j = 0; j < BOARD_WIDTH + 1; j++) {
-			gridpoints[128 + 22*i + 2*j] 		= vec4(33.0 + (j * 33.0), 33.0 + (i * 33.0), 33.00, 1); // front left bottom
-			gridpoints[128 + 22*i + 2*j + 1] 	= vec4(33.0 + (j * 33.0), 33.0 + (i * 33.0), -33.00, 1); // back left bottom
+			gridpoints[128 + 22*i + 2*j] 		= vec4(33.0 + (j * 33.0), 33.0 + (i * 33.0), 16.50, 1); // front left bottom
+			gridpoints[128 + 22*i + 2*j + 1] 	= vec4(33.0 + (j * 33.0), 33.0 + (i * 33.0), -16.50, 1); // back left bottom
 		}
 	}
 	// Make all grid lines coloured
@@ -375,19 +379,19 @@ void initBoard() {
 	// *** Generate the geometric data
 	vec4 boardpoints[BOARD_POINTS];
 	for (int i = 0; i < BOARD_POINTS; i++)
-		boardcolours[i] = cellFreeColour; // Let the empty cells on the board be black
+		boardcolours[i] = cellFreeColour;
 	// Each cell is a square (2 triangles with 6 vertices)
 	for (int i = 0; i < BOARD_HEIGHT; i++){
 		for (int j = 0; j < BOARD_WIDTH; j++)
 		{
-			vec4 p1 = vec4(33.0 + (j * 33.0), 33.0 + (i * 33.0), 33.1, 1); // front left bottom
-			vec4 p2 = vec4(33.0 + (j * 33.0), 66.0 + (i * 33.0), 33.1, 1); // front left top
-			vec4 p3 = vec4(66.0 + (j * 33.0), 33.0 + (i * 33.0), 33.1, 1); // front right bottom
-			vec4 p4 = vec4(66.0 + (j * 33.0), 66.0 + (i * 33.0), 33.1, 1); // front right top
-			vec4 p5 = vec4(33.0 + (j * 33.0), 33.0 + (i * 33.0), -33.1, 1); // back left bottom
-			vec4 p6 = vec4(33.0 + (j * 33.0), 66.0 + (i * 33.0), -33.1, 1); // back left top
-			vec4 p7 = vec4(66.0 + (j * 33.0), 33.0 + (i * 33.0), -33.1, 1); // back right bottom
-			vec4 p8 = vec4(66.0 + (j * 33.0), 66.0 + (i * 33.0), -33.1, 1); // back right top
+			vec4 p1 = vec4(33.0 + (j * 33.0), 33.0 + (i * 33.0), 16.50, 1); // front left bottom
+			vec4 p2 = vec4(33.0 + (j * 33.0), 66.0 + (i * 33.0), 16.50, 1); // front left top
+			vec4 p3 = vec4(66.0 + (j * 33.0), 33.0 + (i * 33.0), 16.50, 1); // front right bottom
+			vec4 p4 = vec4(66.0 + (j * 33.0), 66.0 + (i * 33.0), 16.50, 1); // front right top
+			vec4 p5 = vec4(33.0 + (j * 33.0), 33.0 + (i * 33.0), -16.50, 1); // back left bottom
+			vec4 p6 = vec4(33.0 + (j * 33.0), 66.0 + (i * 33.0), -16.50, 1); // back left top
+			vec4 p7 = vec4(66.0 + (j * 33.0), 33.0 + (i * 33.0), -16.50, 1); // back right bottom
+			vec4 p8 = vec4(66.0 + (j * 33.0), 66.0 + (i * 33.0), -16.50, 1); // back right top
 			
 			int index = 36*(BOARD_WIDTH*i + j);
 			face(boardpoints, index     , p1, p2, p3, p4); // front
@@ -460,8 +464,11 @@ void init() {
 	// The location of the uniform variables in the shader program
 	locMVP = glGetUniformLocation(program, "MVP");
 
-	vec3 topOfBoard = vec3(0, 33*BOARD_HEIGHT + 200, 850);
-	vec3 centerOfBoard = vec3(0, 33*BOARD_HEIGHT/2, 0);
+	// now in unit lenghs
+	vec3 topOfBoard = vec3(0, 3*BOARD_HEIGHT + 10, 300);
+	vec3 centerOfBoard = vec3(0, BOARD_HEIGHT/2, 0);
+	//vec3 topOfBoard = vec3(0, 100, 100);
+	//vec3 centerOfBoard = vec3(0, 33*2, 0);
 	View = LookAt(
 			topOfBoard,
 			centerOfBoard,
@@ -480,14 +487,16 @@ void init() {
 	numDropTileCallbacks++;
 	glutTimerFunc(tileDropSpeed, tileDrop, TILE_CREATE);
 
-	// set to default
-	glBindVertexArray(0);
-   	glEnable(GL_BLEND); glEnable(GL_DEPTH_TEST);
+	// Blend
+   	glEnable(GL_BLEND); 
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	// pass if z values equal as well
+	glClearColor(1, 1, 1, 1);
+	// Depth
+	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LEQUAL);
 	glClearDepth(1.0);
-	glClearColor(1, 1, 1, 1);
+	// Antialiasing
+	//glEnable(GL_LINE_SMOOTH);
 }
 
 //-------------------------------------------------------------------------------------------------------------------
@@ -509,8 +518,10 @@ void rotateCurrentTile(int n) {
 //-------------------------------------------------------------------------------------------------------------------
 // sets colour of the specified board to c
 void setCellColour(const vec2 &p, const vec4 &c) {
-	for(int i = 0; i < 36; i++)
-		boardcolours[36*(BOARD_WIDTH*(int)p.y + (int)p.x) + i] = c;
+	for(int i = 0; i < 36; i++) {
+		int index = 36*(BOARD_WIDTH*(int)p.y + (int)p.x) + i;
+		boardcolours[index] = c;
+	}
 }
 void setCellColour(int x, int y, const vec4 &c) {
 	setCellColour(vec2(x, y), c);
@@ -580,18 +591,23 @@ void restart()
 	init();
 }
 //-------------------------------------------------------------------------------------------------------------------
+
 // moving text!
 float x = -1.0f;
 float y = 0.7f;
 // Draws the game
 void display() {
-	glClear(GL_COLOR_BUFFER_BIT);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	Projection = Perspective(45, 1.0*xsize/ysize, 0.1, 500);
-	mat4 Model = Translate(-33*BOARD_WIDTH/2.0 - 33, 0, 0);
-	
+	Projection = Perspective(45, 1.0*xsize/ysize, 10, 400);
+	// Scale everything to unit length
+	mat4 Model = mat4();
+	Model *= Translate(0, BOARD_HEIGHT/2.0, 0);
+	Model *= Scale(0.33, 0.33, 0.33);  // scale to unit length
+	Model *= Translate(-33*BOARD_WIDTH/2.0 - 33, -33*BOARD_HEIGHT/2.0 - 33, 0); // move to origin
+
 	mat4 MVP = Projection * View * Model;
-	glUniformMatrix4fv(locMVP, 1, GL_TRUE, MVP);
+	setMVP(MVP);
 
 	glColor4f(1.0f, 0.0f, 0.0f, fadeOut);
 	glBindVertexArray(vaoIDs[VAOBoard]); // Bind the VAO representing the grid cells (to be drawn first)
@@ -663,31 +679,33 @@ void reshape(GLsizei w, GLsizei h) {
 void special(int key, int x, int y) {
 	switch(key) {
 		case GLUT_KEY_UP:
-			rotateCurrentTile(0);
-			updatetile();
+			if(glutGetModifiers() == GLUT_ACTIVE_CTRL)
+				View *= RotateZ(10);
+			else {
+				rotateCurrentTile(0);
+				updatetile();
+			}
 			break;
 		case GLUT_KEY_DOWN:
-			if(numFastDropTileCallbacks == 0) {
+			if(glutGetModifiers() == GLUT_ACTIVE_CTRL)
+				View *= RotateZ(-10);
+			else if(numFastDropTileCallbacks == 0) {
 				numFastDropTileCallbacks++;
 				tileDrop(TILE_TICK_FAST);
 			}
 			break;
 		case GLUT_KEY_RIGHT:
-			if(glutGetModifiers() == GLUT_ACTIVE_CTRL) {
+			if(glutGetModifiers() == GLUT_ACTIVE_CTRL)
 				View *= RotateY(10);
-				break;
-			}
-			if(moveTile(vec2(1, 0))) {
+			else if(moveTile(vec2(1, 0))) {
 				currTilePos.x += 1;
 				updatetile();
 			}
 			break;
 		case GLUT_KEY_LEFT:
-			if(glutGetModifiers() == GLUT_ACTIVE_CTRL) {
+			if(glutGetModifiers() == GLUT_ACTIVE_CTRL)
 				View *= RotateY(-10);
-				break;
-			}
-			if(moveTile(vec2(-1, 0))) {
+			else if(moveTile(vec2(-1, 0))) {
 				currTilePos.x -= 1;
 				updatetile();
 			}
@@ -945,7 +963,7 @@ void tileDrop(int type) {
 
 int main(int argc, char **argv) {
 	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
+	glutInitDisplayMode(GLUT_MULTISAMPLE | GLUT_DEPTH | GLUT_RGBA | GLUT_DOUBLE);
 	glutInitWindowSize(xsize, ysize);
 	glutInitWindowPosition(680, 178); // Center the game window (well, on a 1920x1080 display)
 	glutCreateWindow("Fruit Tetris");
