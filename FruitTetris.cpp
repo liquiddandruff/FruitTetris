@@ -25,6 +25,7 @@ Modified in Sep 2014 by Honghua Li (honghual@sfu.ca).
 #include <algorithm>
 #include <iostream>
 #include <sstream>
+#include "robot.h"
 
 using namespace std;
 
@@ -460,6 +461,7 @@ void init() {
 	initGrid();
 	initBoard();
 	initCurrentTile();
+	robot::init();
 
 	// The location of the uniform variables in the shader program
 	locMVP = glGetUniformLocation(program, "MVP");
@@ -497,6 +499,9 @@ void init() {
 	glEnable(GL_MULTISAMPLE);
 	glHint(GL_MULTISAMPLE_FILTER_HINT_NV, GL_NICEST);
 	glEnable(GL_LINE_SMOOTH);
+	glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+	glEnable(GL_POINT_SMOOTH);
+	glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
 }
 
 //-------------------------------------------------------------------------------------------------------------------
@@ -599,7 +604,21 @@ float y = 0.7f;
 void display() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	Projection = Perspective(45, 1.0*xsize/ysize, 10, 100);
+	Projection = Perspective(45, 1.0*xsize/ysize, 10, 200);
+
+    glBindVertexArray(robot::vao);
+	mat4 f = Projection * View * Translate(-10, 0, 0);
+	robot::robotMVP = RotateY(robot::Theta[robot::Base] );
+	robot::base(f);
+
+	robot::robotMVP *= Translate(0.0, robot::BASE_HEIGHT, 0.0);
+	robot::robotMVP *= RotateZ(robot::Theta[robot::LowerArm]);
+	robot::lower_arm(f);
+
+	robot::robotMVP *= Translate(0.0, robot::LOWER_ARM_HEIGHT, 0.0);
+	robot::robotMVP *= RotateZ(robot::Theta[robot::UpperArm]);
+	robot::upper_arm(f);
+
 	// Scale everything to unit length
 	mat4 Model = mat4();
 	Model *= Translate(0, BOARD_HEIGHT/2.0, 0);
