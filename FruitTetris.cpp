@@ -713,7 +713,7 @@ void special(int key, int x, int y) {
 				tileDrop(TILE_TICK_FAST);
 			}
 			break;
-		case GLUT_KEY_RIGHT:
+		/*case GLUT_KEY_RIGHT:
 			if(glutGetModifiers() == GLUT_ACTIVE_CTRL)
 				View *= RotateY(10);
 			else if(moveTile(vec2(1, 0))) {
@@ -728,7 +728,7 @@ void special(int key, int x, int y) {
 				currTilePos.x -= 1;
 				updatetile();
 			}
-			break;
+			break;*/
 		default:
 			break;
 	}
@@ -763,6 +763,18 @@ void keyboard(unsigned char key, int x, int y) {
 		case ' ':
 			shuffleAndUpdateColours();
 			updatetile();
+			break;
+		case 'a':
+			robot::Theta[robot::LowerArm] += 10;
+			break;
+		case 'd':
+			robot::Theta[robot::LowerArm] -= 10;
+			break;
+		case 'w':
+			robot::Theta[robot::UpperArm] += 10;
+			break;
+		case 's':
+			robot::Theta[robot::UpperArm] -= 10;
 			break;
 		case 't':
 			for(int i = 0; i < (int)sizeof(test)/(int)sizeof(int); i+=3) {
