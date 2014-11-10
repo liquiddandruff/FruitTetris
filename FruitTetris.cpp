@@ -241,8 +241,6 @@ void updatetile() {
 		// Put new data in the VBO
 		glBufferSubData(GL_ARRAY_BUFFER, i*sizeof(newpoints), sizeof(newpoints), newpoints); 
 	}
-
-	glBindVertexArray(0);
 }
 
 //-------------------------------------------------------------------------------------------------------------------
@@ -295,9 +293,10 @@ void shuffleAndUpdateColours() {
 void newtile() {
 	if(gui[TextGG]) return;
 	tileDropSpeed = TILE_DROP_SPEED;
-	//currTilePos = vec2(5 , BOARD_HEIGHT); // Put the tile at the top of the board
+	//vec4 p1 = vec4(33.0 + (x * 33.0), 33.0 + (y * 33.0), 16.50, 1); // front left bottom
+	//currTilePos = vec2(rand() % BOARD_WIDTH, BOARD_HEIGHT - 1); // Put the tile at the top of the board
 	vec2 robotTip = robot::getTip();
-	currTilePos = vec2(rand() % BOARD_WIDTH, BOARD_HEIGHT - 1); // Put the tile at the top of the board
+	currTilePos = robotTip;
 
 	// Update the geometry VBO of current tile
 	currTileShapeIndex = rand() % MaxTileShapes;
@@ -463,6 +462,8 @@ void init() {
 	initBoard();
 	initCurrentTile();
 	robot::init();
+	robot::Theta[robot::LowerArm] = 5;
+	robot::Theta[robot::UpperArm] = -85;
 
 	// The location of the uniform variables in the shader program
 	locMVP = glGetUniformLocation(program, "MVP");
@@ -484,9 +485,6 @@ void init() {
 	gui[TextRows] = 0;
 
 	newtile(); // create new next tile
-
-	numDropTileCallbacks++;
-	glutTimerFunc(tileDropSpeed, tileDrop, TILE_CREATE);
 
 	// Blend
    	glEnable(GL_BLEND); 
@@ -593,7 +591,6 @@ void drawText(T str, float x, float y) {
 void restart()
 {
 	numDropTileCallbacks = numFastDropTileCallbacks = numCheckFruitColumnCallbacks = 0;
-	numDropTileCallbacks++;
 	init();
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -604,6 +601,7 @@ float y = 0.7f;
 // Draws the game
 void display() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glColor4f(1.0f, 0.0f, 0.0f, fadeOut);
 
 	Projection = Perspective(45, 1.0*xsize/ysize, 10, 200);
 
@@ -632,7 +630,6 @@ void display() {
 	mat4 MVP = Projection * View * Model;
 	setMVP(MVP);
 
-	glColor4f(1.0f, 0.0f, 0.0f, fadeOut);
 	glBindVertexArray(vaoIDs[VAOBoard]); // Bind the VAO representing the grid cells (to be drawn first)
 	glDrawArrays(GL_TRIANGLES, 0, BOARD_POINTS); // Draw the board (10*20*2 = 400 triangles)
 
@@ -761,18 +758,24 @@ void keyboard(unsigned char key, int x, int y) {
 				shuffleAndUpdateColours();
 				updatetile();
 			} else {
+				numDropTileCallbacks++;
+				glutTimerFunc(0, tileDrop, TILE_CREATE);
 			}
 			break;
 		case 'a':
+			cout << "theta[lowerArm] = " << robot::Theta[robot::LowerArm] << endl;
 			robot::Theta[robot::LowerArm] += 5;
 			break;
 		case 'd':
+			cout << "theta[lowerArm] = " << robot::Theta[robot::LowerArm] << endl;
 			robot::Theta[robot::LowerArm] -= 5;
 			break;
 		case 'w':
+			cout << "theta[upperArm] = " << robot::Theta[robot::UpperArm] << endl;
 			robot::Theta[robot::UpperArm] += 5;
 			break;
 		case 's':
+			cout << "theta[upperArm] = " << robot::Theta[robot::UpperArm] << endl;
 			robot::Theta[robot::UpperArm] -= 5;
 			break;
 		case 't':
@@ -944,8 +947,10 @@ void tileDrop(int type) {
 				if(tileFreeToFall(currTilePos)) {
 					currTilePos.y -= 1;
 					updatetile();
+					glutTimerFunc(tileDropSpeed, tileDrop, value);
 				} else {
 					numFastDropTileCallbacks = 0;
+					numDropTileCallbacks--;
 					setTileColour(currTilePos);
 					vector<vec2> lowestYCellsFirst; 
 					for(int i = 0; i < 4; i++) lowestYCellsFirst.push_back(currTilePos + currTileOffset[i]);
@@ -962,11 +967,8 @@ void tileDrop(int type) {
 						}
 					}
 					newtile();
-					value = TILE_CREATE;
-					
 				}
 				updateBoard();
-				glutTimerFunc(tileDropSpeed, tileDrop, value);
 			}	
 			return;
 		case TILE_TICK_FAST:
