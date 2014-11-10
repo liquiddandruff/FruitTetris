@@ -19,6 +19,7 @@ extern const GLfloat UPPER_ARM_WIDTH;
 enum { Base = 0, LowerArm = 1, UpperArm = 2, NumAngles = 3 };
 extern GLfloat Theta[NumAngles];
 
+vec2 getTip();
 void init();
 void quad( int a, int b, int c, int d );
 void colorcube();

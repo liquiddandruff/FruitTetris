@@ -296,6 +296,7 @@ void newtile() {
 	if(gui[TextGG]) return;
 	tileDropSpeed = TILE_DROP_SPEED;
 	//currTilePos = vec2(5 , BOARD_HEIGHT); // Put the tile at the top of the board
+	vec2 robotTip = robot::getTip();
 	currTilePos = vec2(rand() % BOARD_WIDTH, BOARD_HEIGHT - 1); // Put the tile at the top of the board
 
 	// Update the geometry VBO of current tile
@@ -606,6 +607,7 @@ void display() {
 
 	Projection = Perspective(45, 1.0*xsize/ysize, 10, 200);
 
+	// Draw the robot
     glBindVertexArray(robot::vao);
 	mat4 f = Projection * View * Translate(-10, 0, 0);
 	robot::robotMVP = RotateY(robot::Theta[robot::Base] );
@@ -618,6 +620,8 @@ void display() {
 	robot::robotMVP *= Translate(0.0, robot::LOWER_ARM_HEIGHT, 0.0);
 	robot::robotMVP *= RotateZ(robot::Theta[robot::UpperArm]);
 	robot::upper_arm(f);
+
+	robot::robotMVP *= Translate(0.0, robot::UPPER_ARM_HEIGHT, 0.0);
 
 	// Scale everything to unit length
 	mat4 Model = mat4();
@@ -713,22 +717,14 @@ void special(int key, int x, int y) {
 				tileDrop(TILE_TICK_FAST);
 			}
 			break;
-		/*case GLUT_KEY_RIGHT:
+		case GLUT_KEY_RIGHT:
 			if(glutGetModifiers() == GLUT_ACTIVE_CTRL)
 				View *= RotateY(10);
-			else if(moveTile(vec2(1, 0))) {
-				currTilePos.x += 1;
-				updatetile();
-			}
 			break;
 		case GLUT_KEY_LEFT:
 			if(glutGetModifiers() == GLUT_ACTIVE_CTRL)
 				View *= RotateY(-10);
-			else if(moveTile(vec2(-1, 0))) {
-				currTilePos.x -= 1;
-				updatetile();
-			}
-			break;*/
+			break;
 		default:
 			break;
 	}
@@ -761,8 +757,11 @@ void keyboard(unsigned char key, int x, int y) {
 			restart();
 			break;
 		case ' ':
-			shuffleAndUpdateColours();
-			updatetile();
+			if(glutGetModifiers() == GLUT_ACTIVE_CTRL) {
+				shuffleAndUpdateColours();
+				updatetile();
+			} else {
+			}
 			break;
 		case 'a':
 			robot::Theta[robot::LowerArm] += 10;
@@ -944,6 +943,7 @@ void tileDrop(int type) {
 			if(numDropTileCallbacks == 1) {
 				if(tileFreeToFall(currTilePos)) {
 					currTilePos.y -= 1;
+					updatetile();
 				} else {
 					numFastDropTileCallbacks = 0;
 					setTileColour(currTilePos);
@@ -966,7 +966,6 @@ void tileDrop(int type) {
 					
 				}
 				updateBoard();
-				updatetile();
 				glutTimerFunc(tileDropSpeed, tileDrop, value);
 			}	
 			return;

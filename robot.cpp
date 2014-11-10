@@ -95,6 +95,21 @@ void colorcube() {
     quad( 5, 4, 0, 1 );
 }
 
+vec2 getTip() {
+	vec2 tip;
+	// base
+	tip.x += -10;
+	tip.y += BASE_HEIGHT;
+	// lower arm
+	tip.x += LOWER_ARM_HEIGHT * sin(Theta[LowerArm]);
+	tip.y += LOWER_ARM_HEIGHT * cos(Theta[LowerArm]);
+	// upper arm
+	tip.x += UPPER_ARM_HEIGHT * cos(Theta[UpperArm]);
+	tip.y += UPPER_ARM_HEIGHT * sin(Theta[UpperArm]);
+	
+	return tip;
+}
+
 void base(const mat4 &vp) {
     mat4 instance = ( Translate( 0.0, 0.5 * BASE_HEIGHT, 0.0 ) *
 		 Scale( BASE_WIDTH,
