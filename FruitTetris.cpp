@@ -764,16 +764,16 @@ void keyboard(unsigned char key, int x, int y) {
 			}
 			break;
 		case 'a':
-			robot::Theta[robot::LowerArm] += 10;
+			robot::Theta[robot::LowerArm] += 5;
 			break;
 		case 'd':
-			robot::Theta[robot::LowerArm] -= 10;
+			robot::Theta[robot::LowerArm] -= 5;
 			break;
 		case 'w':
-			robot::Theta[robot::UpperArm] += 10;
+			robot::Theta[robot::UpperArm] += 5;
 			break;
 		case 's':
-			robot::Theta[robot::UpperArm] -= 10;
+			robot::Theta[robot::UpperArm] -= 5;
 			break;
 		case 't':
 			for(int i = 0; i < (int)sizeof(test)/(int)sizeof(int); i+=3) {

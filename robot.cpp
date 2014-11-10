@@ -37,9 +37,9 @@ color4 vertex_colors[8] = {
 // Parameters controlling the size of the Robot's arm
 const GLfloat BASE_HEIGHT      = 2.0;
 const GLfloat BASE_WIDTH       = 5.0;
-const GLfloat LOWER_ARM_HEIGHT = 8.0;
+const GLfloat LOWER_ARM_HEIGHT = 12.0;
 const GLfloat LOWER_ARM_WIDTH  = 0.5;
-const GLfloat UPPER_ARM_HEIGHT = 8.0;
+const GLfloat UPPER_ARM_HEIGHT = 11.0;
 const GLfloat UPPER_ARM_WIDTH  = 0.5;
 
 // Shader transformation matrices
