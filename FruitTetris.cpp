@@ -37,6 +37,7 @@ using namespace std;
 #define BOARD_HEIGHT 20
 #define MAX_FRUIT_GROUP 3
 #define BOARD_POINTS 1200*6
+#define MAX_GRIP_TIME 5
 
 // forward declarations
 int checkFullRow(const vec2 &p);
@@ -46,6 +47,7 @@ void tileDrop(int type);
 void rotateCurrentTile(int n);
 bool isInBoardBounds(vec2 p);
 bool isInBoardBounds(int x, int y);
+void updateTileColours();
 vec4 getCellColour(const vec2 &p);
 
 // information to draw to screen
@@ -54,9 +56,10 @@ enum Text {
 	TextCells,
 	TextRows,
 	TextGG,
+	GripTime,
 	TextMax
 };
-int gui[TextMax];
+float gui[TextMax];
 
 enum TileInfo {
 	TILE_CREATE,
@@ -117,6 +120,7 @@ const vec2 allShapes[MaxTileShapes][4] =
 	 {vec2(-1, -1), vec2(-1,  0), vec2(0, 0), vec2( 1,  0)}}; // L
 //-------------------------------------------------------------------------------------------------------------------
 const vec4 white          = vec4(1.0, 1.0, 1.0, 1.0);
+const vec4 grey           = vec4(0.6, 0.6, 0.6, 1.0);
 const vec4 gridColour     = vec4(0.8, 0.8, 0.8, 0.8);
 const vec4 black          = vec4(0.0, 0.0, 0.0, 1.0);
 const vec4 cellFreeColour = vec4(1.0, 1.0, 1.0, 0.0);
@@ -147,9 +151,13 @@ void setCellOccupied(int x, int y, bool o) {
 	board[x][y] = o;
 }
 bool isCellOccupied(int x, int y) {
+	if(!isInBoardBounds(x, y))
+		return false;
 	return board[x][y];
 }
 bool isCellOccupied(const vec2 &p) {
+	if(!isInBoardBounds(p))
+		return false;
 	return board[(int)p.x][(int)p.y];
 }
 
@@ -198,6 +206,11 @@ enum VBO_IDs {
 GLuint vboIDs[MaxVboIds]; // Two Vertex Buffer Objects for each VAO (specifying vertex positions and colours, respectively)
 
 //-------------------------------------------------------------------------------------------------------------------
+bool isAboveBoard(vec2 p) {
+	if(p.x < 0 || p.x > BOARD_WIDTH - 1) return false;
+	if(p.y < 0) return false;
+	return true;
+}
 bool isInBoardBounds(vec2 p) {
 	if(p.x < 0 || p.x > BOARD_WIDTH - 1) return false;
 	if(p.y < 0 || p.y > BOARD_HEIGHT - 1) return false;
@@ -206,12 +219,32 @@ bool isInBoardBounds(vec2 p) {
 bool isInBoardBounds(int x, int y) {
 	return isInBoardBounds(vec2(x, y));
 }
+int canRelease() {
+	int cellsInBoard = 0; int cellsOccupied = 0;
+	for(int i = 0; i < 4; i++) {
+		vec2 p = currTilePos + currTileOffset[i];
+		if(isCellOccupied(p)) cellsOccupied++;
+		if(isAboveBoard(p)) cellsInBoard++;
+	}
+	return cellsInBoard == 4 && cellsOccupied == 0;
+}
 
 // When the current tile is moved or rotated (or created), update the VBO containing its vertex position data
 void updatetile() {
 	if(gui[TextGG]) return;
 	if(!tileFalling)
 		currTilePos = robot::getTip();
+
+	if(canRelease()) {
+		updateTileColours();
+	} else {
+		vec4 newcolours[24*6];
+		for (int i = 0; i < 24*6; i++)
+			newcolours[i] = grey;
+		glBindBuffer(GL_ARRAY_BUFFER, vboIDs[CurrentTileColourBO]); // Bind the VBO containing current tile vertex colours
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(newcolours), newcolours); // Put the colour data in the VBO
+	}
+
 	// Bind the VBO containing current tile vertex positions
 	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[CurrentTilePositionBO]); 
 
@@ -305,17 +338,18 @@ void newtile() {
 	for(int i = 0; i < 4; i++) {
 		currTileColours[i] = fruitColours[rand() % MaxFruitColours];
 		currTileOffset[i] = allShapes[currTileShapeIndex][i];
-		nudgeCurrentTile(currTileOffset[i].x, currTileOffset[i].y);
+		//nudgeCurrentTile(currTileOffset[i].x, currTileOffset[i].y);
 	}
 	rotateCurrentTile(rand() % 5);
 	shuffleAndUpdateColours();
 	updatetile(); 
 
-	for(int i = 0; i < 4; i++) {
+	// can't lose! ;)
+	/*for(int i = 0; i < 4; i++) {
 		if(isCellOccupied(currTilePos + currTileOffset[i])) {
 			gui[TextGG] = 1;
 		}
-	}
+	}*/
 	glBindVertexArray(0);
 }
 
@@ -485,6 +519,7 @@ void init() {
 	gui[TextScore] = 0;
 	gui[TextCells] = 0;
 	gui[TextRows] = 0;
+	gui[GripTime] = MAX_GRIP_TIME;
 
 	newtile(); // create new next tile
 
@@ -681,10 +716,29 @@ void display() {
 	// noskipws to draw whitespace 
 	ss << noskipws << "Tile position: " << currTilePos.x << ',' << currTilePos.y;
 	drawText(ss.str(), -1, 0.95);
+
 	drawText("have fun!", x+=0.001, y);
+
 	ss.clear(); ss.str("");
 	ss << noskipws << "Score: " << gui[TextScore] << " Cells Deleted: " << gui[TextCells] << " Rows Deleted: " << gui[TextRows];
 	drawText(ss.str(), -0.5, -0.95);
+
+	ss.clear(); ss.str("");
+	if(gui[GripTime] > 0) {
+		gui[GripTime] -= 1/60.0;
+	} else {
+		// if can't release, move arm to middle and release
+		if(!canRelease()) {
+			robot::Theta[robot::LowerArm] = 5;
+			robot::Theta[robot::UpperArm] = -85;
+			updatetile();
+		}
+		gui[GripTime] = MAX_GRIP_TIME;
+		numFastDropTileCallbacks++;
+		tileDrop(TILE_TICK_FAST);
+	}
+	ss << noskipws << "Gripper Time Remaining: " << gui[GripTime];
+	drawText(ss.str(), -0.1, 0.95);
 
 	glutSwapBuffers();
 }
@@ -712,8 +766,10 @@ void special(int key, int x, int y) {
 			if(glutGetModifiers() == GLUT_ACTIVE_CTRL)
 				View *= RotateZ(-10);
 			else if(numFastDropTileCallbacks == 0) {
-				numFastDropTileCallbacks++;
-				tileDrop(TILE_TICK_FAST);
+				if(canRelease()) {
+					numFastDropTileCallbacks++;
+					tileDrop(TILE_TICK_FAST);
+				}
 			}
 			break;
 		case GLUT_KEY_RIGHT:
@@ -760,8 +816,10 @@ void keyboard(unsigned char key, int x, int y) {
 				shuffleAndUpdateColours();
 				updatetile();
 			} else {
-				numDropTileCallbacks++;
-				glutTimerFunc(0, tileDrop, TILE_CREATE);
+				if(canRelease()) {
+					numDropTileCallbacks++;
+					glutTimerFunc(0, tileDrop, TILE_CREATE);
+				}
 			}
 			break;
 		case 'a':
@@ -959,6 +1017,8 @@ void tileDrop(int type) {
 					numFastDropTileCallbacks = 0;
 					numDropTileCallbacks--;
 					setTileColour(currTilePos);
+					// disable tile deletion ;)
+					/*
 					vector<vec2> lowestYCellsFirst; 
 					for(int i = 0; i < 4; i++) lowestYCellsFirst.push_back(currTilePos + currTileOffset[i]);
 					sort(lowestYCellsFirst.begin(), lowestYCellsFirst.end(), sortByIncY());
@@ -972,9 +1032,9 @@ void tileDrop(int type) {
 						} else if(i == 3) {
 							for(int k = 0; k < 4; k++) checkGroupedFruits(lowestYCellsFirst[k]);
 						}
-					}
-					tileFalling = false;
+					} */
 					newtile();
+					tileFalling = false;
 				}
 				updateBoard();
 			}	
@@ -988,7 +1048,6 @@ void tileDrop(int type) {
 					updatetile();
 					glutTimerFunc(TILE_DROP_SPEED_FAST, tileDrop, TILE_TICK_FAST);
 				} else {
-					tileFalling = false;
 					numDropTileCallbacks++;
 					glutTimerFunc(TILE_DROP_SPEED, tileDrop, TILE_TICK);
 				}

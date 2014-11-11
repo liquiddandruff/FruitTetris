@@ -29,7 +29,7 @@ color4 vertex_colors[8] = {
     color4( 0.0, 1.0, 0.0, 1.0 ),  // green
     color4( 0.0, 0.0, 1.0, 1.0 ),  // blue
     color4( 1.0, 0.0, 1.0, 1.0 ),  // magenta
-    color4( 1.0, 1.0, 1.0, 1.0 ),  // white
+    color4( 0.4, 0.5, 0.2, 1.0 ),  // white
     color4( 0.0, 1.0, 1.0, 1.0 )   // cyan
 };
 
@@ -106,11 +106,12 @@ vec2 getTip() {
 	tip.x += LOWER_ARM_HEIGHT * -sin(3.14159/180* Theta[LowerArm]);
 	tip.y += LOWER_ARM_HEIGHT * cos(-3.14159/180* Theta[LowerArm]);
 	// upper arm
-	tip.x += UPPER_ARM_HEIGHT * -cos(3.14159/180* (90 - Theta[LowerArm] - Theta[UpperArm]));
-	tip.y += UPPER_ARM_HEIGHT * sin(3.14159/180* (90 - Theta[LowerArm] - Theta[UpperArm]));
+	tip.x += (UPPER_ARM_HEIGHT-0.5) * -cos(3.14159/180* (90 - Theta[LowerArm] - Theta[UpperArm]));
+	tip.y += (UPPER_ARM_HEIGHT-0.5) * sin(3.14159/180* (90 - Theta[LowerArm] - Theta[UpperArm]));
 	// round
 	tip.x = (int)(0.5 + tip.x);
 	tip.y = (int)(0.5 + tip.y);
+	
 	return tip;
 }
 
