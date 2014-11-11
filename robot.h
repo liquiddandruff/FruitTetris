@@ -8,6 +8,7 @@ namespace robot {
 typedef Angel::vec4 point4;
 typedef Angel::vec4 color4;
 
+extern vec3 pos;
 extern mat4 robotMVP;
 extern GLuint vao;
 extern const GLfloat BASE_HEIGHT;

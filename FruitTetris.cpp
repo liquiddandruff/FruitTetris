@@ -64,6 +64,7 @@ enum TileInfo {
 	TILE_TICK_FAST,
 	TILE_COLUMN_CHECK
 };
+bool tileFalling = false;
 // various callback variables to make sure only 1 callback is called at once
 int numCheckFruitColumnCallbacks = 0;
 int numDropTileCallbacks = 0;
@@ -209,6 +210,8 @@ bool isInBoardBounds(int x, int y) {
 // When the current tile is moved or rotated (or created), update the VBO containing its vertex position data
 void updatetile() {
 	if(gui[TextGG]) return;
+	if(!tileFalling)
+		currTilePos = robot::getTip();
 	// Bind the VBO containing current tile vertex positions
 	glBindBuffer(GL_ARRAY_BUFFER, vboIDs[CurrentTilePositionBO]); 
 
@@ -295,8 +298,7 @@ void newtile() {
 	tileDropSpeed = TILE_DROP_SPEED;
 	//vec4 p1 = vec4(33.0 + (x * 33.0), 33.0 + (y * 33.0), 16.50, 1); // front left bottom
 	//currTilePos = vec2(rand() % BOARD_WIDTH, BOARD_HEIGHT - 1); // Put the tile at the top of the board
-	vec2 robotTip = robot::getTip();
-	currTilePos = robotTip;
+	currTilePos = robot::getTip();
 
 	// Update the geometry VBO of current tile
 	currTileShapeIndex = rand() % MaxTileShapes;
@@ -607,7 +609,7 @@ void display() {
 
 	// Draw the robot
     glBindVertexArray(robot::vao);
-	mat4 f = Projection * View * Translate(-10, 0, 0);
+	mat4 f = Projection * View * Translate(robot::pos);
 	robot::robotMVP = RotateY(robot::Theta[robot::Base] );
 	robot::base(f);
 
@@ -765,18 +767,22 @@ void keyboard(unsigned char key, int x, int y) {
 		case 'a':
 			cout << "theta[lowerArm] = " << robot::Theta[robot::LowerArm] << endl;
 			robot::Theta[robot::LowerArm] += 5;
+			updatetile();
 			break;
 		case 'd':
 			cout << "theta[lowerArm] = " << robot::Theta[robot::LowerArm] << endl;
 			robot::Theta[robot::LowerArm] -= 5;
+			updatetile();
 			break;
 		case 'w':
 			cout << "theta[upperArm] = " << robot::Theta[robot::UpperArm] << endl;
 			robot::Theta[robot::UpperArm] += 5;
+			updatetile();
 			break;
 		case 's':
 			cout << "theta[upperArm] = " << robot::Theta[robot::UpperArm] << endl;
 			robot::Theta[robot::UpperArm] -= 5;
+			updatetile();
 			break;
 		case 't':
 			for(int i = 0; i < (int)sizeof(test)/(int)sizeof(int); i+=3) {
@@ -946,6 +952,7 @@ void tileDrop(int type) {
 			if(numDropTileCallbacks == 1) {
 				if(tileFreeToFall(currTilePos)) {
 					currTilePos.y -= 1;
+					tileFalling = true;
 					updatetile();
 					glutTimerFunc(tileDropSpeed, tileDrop, value);
 				} else {
@@ -966,6 +973,7 @@ void tileDrop(int type) {
 							for(int k = 0; k < 4; k++) checkGroupedFruits(lowestYCellsFirst[k]);
 						}
 					}
+					tileFalling = false;
 					newtile();
 				}
 				updateBoard();
@@ -976,9 +984,11 @@ void tileDrop(int type) {
 			if(numFastDropTileCallbacks == 1) {
 				if(tileFreeToFall(currTilePos)){
 					currTilePos.y -= 1;
+					tileFalling = true;
 					updatetile();
 					glutTimerFunc(TILE_DROP_SPEED_FAST, tileDrop, TILE_TICK_FAST);
 				} else {
+					tileFalling = false;
 					numDropTileCallbacks++;
 					glutTimerFunc(TILE_DROP_SPEED, tileDrop, TILE_TICK);
 				}

@@ -42,6 +42,7 @@ const GLfloat LOWER_ARM_WIDTH  = 0.5;
 const GLfloat UPPER_ARM_HEIGHT = 11.0;
 const GLfloat UPPER_ARM_WIDTH  = 0.5;
 
+vec3 pos;
 // Shader transformation matrices
 mat4  robotMVP;
 
@@ -56,6 +57,7 @@ const int  Quit = 4;
 int Index = 0;
 void init( void ) {
 	Index = 0;
+	pos = vec3(-10, 0, 0);
     colorcube();
     
     // Create a vertex array object
@@ -98,15 +100,17 @@ void colorcube() {
 vec2 getTip() {
 	vec2 tip;
 	// base
-	tip.x += -10;
-	tip.y += BASE_HEIGHT;
+	tip.x += pos.x/2;
+	tip.y += pos.y + BASE_HEIGHT;
 	// lower arm
-	tip.x += LOWER_ARM_HEIGHT * sin(Theta[LowerArm]);
-	tip.y += LOWER_ARM_HEIGHT * cos(Theta[LowerArm]);
+	tip.x += LOWER_ARM_HEIGHT * -sin(3.14159/180* Theta[LowerArm]);
+	tip.y += LOWER_ARM_HEIGHT * cos(-3.14159/180* Theta[LowerArm]);
 	// upper arm
-	tip.x += UPPER_ARM_HEIGHT * cos(Theta[UpperArm]);
-	tip.y += UPPER_ARM_HEIGHT * sin(Theta[UpperArm]);
-	
+	tip.x += UPPER_ARM_HEIGHT * -cos(3.14159/180* (90 - Theta[LowerArm] - Theta[UpperArm]));
+	tip.y += UPPER_ARM_HEIGHT * sin(3.14159/180* (90 - Theta[LowerArm] - Theta[UpperArm]));
+	// round
+	tip.x = (int)(0.5 + tip.x);
+	tip.y = (int)(0.5 + tip.y);
 	return tip;
 }
 
